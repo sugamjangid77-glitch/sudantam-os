@@ -8,78 +8,81 @@ import base64
 from fpdf import FPDF
 
 # ==========================================
-# 1. APP CONFIGURATION
+# 1. THEME CONFIGURATION (STRICT FORCE MODE)
 # ==========================================
 st.set_page_config(page_title="Sudantam OS", layout="wide", page_icon="🦷")
 
-# NUCLEAR CSS v2.0 (The "Anti-Dark Mode" Fix)
 st.markdown("""
     <style>
-        /* 1. FORCE BROWSER TO RENDER IN LIGHT MODE ONLY */
+        /* 1. FORCE SYSTEM TO LIGHT MODE */
         :root {
-            color-scheme: light;
+            color-scheme: light !important;
+        }
+
+        /* 2. MAIN BACKGROUND - FORCE WHITE */
+        .stApp {
+            background-color: #ffffff !important;
         }
         
-        /* 2. MAIN CONTAINER BACKGROUND */
-        .stApp {
-            background-color: #F8F9FA !important; /* Professional Medical Grey */
+        /* 3. INPUTS & DROPDOWNS (THE "BLANK MENU" FIX) */
+        /* This targets the box you click */
+        div[data-baseweb="select"] > div {
+            background-color: #ffffff !important;
+            color: #000000 !important;
+            border: 1px solid #000000 !important;
+        }
+        
+        /* This targets the POPUP MENU (The part that was blank) */
+        div[data-baseweb="popover"], div[data-baseweb="menu"], ul {
+            background-color: #ffffff !important;
+            color: #000000 !important;
+        }
+        
+        /* Force list items to be black text */
+        li {
             color: #000000 !important;
         }
 
-        /* 3. INPUTS - FORCE WHITE BACKGROUND & BLACK TEXT */
-        input, textarea, select, .stNumberInput input {
-            background-color: #FFFFFF !important;
+        /* 4. TEXT INPUTS */
+        input, textarea, .stNumberInput input {
+            background-color: #ffffff !important;
             color: #000000 !important;
             border: 1px solid #ced4da !important;
-            border-radius: 6px !important;
         }
         
-        /* Fix for Dropdowns (Gender, etc.) */
-        div[role="listbox"], ul {
-            background-color: #FFFFFF !important;
+        /* 5. FIX "BLACK TABS" (Navigation) */
+        /* The container for the tabs */
+        div[data-baseweb="tab-list"] {
+            background-color: #f0f2f6 !important; /* Light Grey Bar */
+            padding: 10px !important;
+            border-radius: 10px !important;
+        }
+        
+        /* The Tab Buttons themselves */
+        button[data-baseweb="tab"] {
+            background-color: #ffffff !important;
+            color: #000000 !important; /* Force Black Text */
+            border: 1px solid #ccc !important;
+        }
+        
+        /* The Selected Tab */
+        button[data-baseweb="tab"][aria-selected="true"] {
+            background-color: #2C7A6F !important; /* Teal */
+            color: #ffffff !important; /* White Text */
+            border: none !important;
+        }
+
+        /* 6. TEXT VISIBILITY (Headers, Labels) */
+        p, h1, h2, h3, h4, h5, h6, label, span {
             color: #000000 !important;
         }
         
-        /* 4. MEDICAL HISTORY TAGS (Fixing the "Weird Signs") */
-        /* This targets the selected items in Medical History & Teeth */
+        /* 7. MEDICAL TAGS (Fix "Weird Signs") */
         span[data-baseweb="tag"] {
-            background-color: #2C7A6F !important; /* Teal Background */
-            color: #FFFFFF !important; /* White Text */
-            font-weight: bold !important;
-            border-radius: 4px !important;
-        }
-        /* Fix the "X" remove icon color */
-        span[data-baseweb="tag"] i, span[data-baseweb="tag"] svg {
-            fill: #FFFFFF !important;
-            color: #FFFFFF !important;
-        }
-
-        /* 5. TABS - MODERN "PILL" STYLE */
-        .stTabs [data-baseweb="tab-list"] {
-            gap: 10px;
-            background-color: transparent;
-            padding-bottom: 5px;
-        }
-        .stTabs [data-baseweb="tab"] {
-            background-color: #FFFFFF !important;
-            color: #333333 !important;
-            border: 1px solid #ccc !important;
-            border-radius: 20px !important; /* Rounded Pills */
-            padding: 8px 20px !important;
-            font-weight: 600 !important;
-        }
-        .stTabs [aria-selected="true"] {
             background-color: #2C7A6F !important;
-            color: #FFFFFF !important;
-            border: 1px solid #2C7A6F !important;
+            color: white !important;
         }
 
-        /* 6. LABELS & TEXT VISIBILITY */
-        label, p, h1, h2, h3, h4, h5, h6, .stMarkdown {
-            color: #212529 !important;
-        }
-        
-        /* Hide Streamlit Branding */
         #MainMenu, footer, header {visibility: hidden;}
     </style>
 """, unsafe_allow_html=True)
@@ -92,7 +95,7 @@ LOGO_FILENAME = "logo.jpeg"
 if not os.path.exists(PRESCRIPTION_FOLDER): os.makedirs(PRESCRIPTION_FOLDER)
 
 # ==========================================
-# 2. DATA ENGINE
+# 2. CLOUD SYNC
 # ==========================================
 try:
     import gspread
@@ -189,13 +192,13 @@ with c1:
 with c2: 
     st.markdown("<h3 style='margin-top:10px; color:#2C7A6F; font-weight:800;'>SUDANTAM OS</h3>", unsafe_allow_html=True)
 
-# TABS (PILL DESIGN)
+# TABS
 tabs = st.tabs(["NEW PATIENT", "BILLING", "RECORDS", "DUES", "SYNC"])
 
-# --- TAB 1: REGISTRATION ---
+# --- TAB 1: NEW PATIENT ---
 with tabs[0]:
-    st.markdown("##### 📝 Register New Patient")
-    with st.container():
+    st.markdown("#### 📝 Register New Patient")
+    with st.container(border=True):
         with st.form("reg", clear_on_submit=True):
             name = st.text_input("FULL NAME")
             phone = st.text_input("PHONE NUMBER")
@@ -216,7 +219,7 @@ with tabs[0]:
 
 # --- TAB 2: CLINICAL ---
 with tabs[1]:
-    st.markdown("##### 🦷 Treatment & Billing")
+    st.markdown("#### 🦷 Treatment & Billing")
     pt_name = st.selectbox("SEARCH PATIENT", [""] + df["Name"].tolist())
     
     if pt_name:
@@ -231,7 +234,7 @@ with tabs[1]:
         with c3: lr = st.multiselect("LR (48-41)", ["48","47","46","45","44","43","42","41"])
         with c4: ll = st.multiselect("LL (31-38)", ["31","32","33","34","35","36","37","38"])
 
-        # LIVE PREVIEW
+        # Live Preview Box
         fdi_str = ", ".join(ur + ul + ll + lr)
         if fdi_str: st.success(f"**SELECTED:** {fdi_str}")
 
@@ -251,7 +254,6 @@ with tabs[1]:
             df.at[idx, "Pending Amount"] = due
             df.at[idx, "Affected Teeth"] = fdi_str
             save_data(df)
-            
             pdf_path, pdf_name = generate_pdf_file(pt_name, str(row['Age']), datetime.date.today().strftime("%d-%m-%Y"), diag, meds, tx_reason, fdi_str, amount, paid, due)
             st.success("Saved!")
             with open(pdf_path, "rb") as f:
@@ -259,7 +261,7 @@ with tabs[1]:
 
 # --- TAB 3: RECORDS ---
 with tabs[2]:
-    st.markdown("##### 📂 Patient Database")
+    st.markdown("#### 📂 Patient Database")
     q = st.text_input("🔍 SEARCH NAME")
     if q:
         res = df[df["Name"].str.contains(q, case=False, na=False)]
@@ -278,7 +280,7 @@ with tabs[2]:
 
 # --- TAB 4: DUES ---
 with tabs[3]:
-    st.markdown("##### 💰 Payment Manager")
+    st.markdown("#### 💰 Payment Manager")
     df["Pending Amount"] = pd.to_numeric(df["Pending Amount"], errors='coerce').fillna(0)
     defaulters = df[df["Pending Amount"] > 0]
     
