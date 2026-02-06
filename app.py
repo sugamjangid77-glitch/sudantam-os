@@ -8,99 +8,78 @@ import base64
 from fpdf import FPDF
 
 # ==========================================
-# 1. APP CONFIGURATION & "MEDICAL PRO" THEME
+# 1. APP CONFIGURATION
 # ==========================================
 st.set_page_config(page_title="Sudantam OS", layout="wide", page_icon="🦷")
 
+# NUCLEAR CSS v2.0 (The "Anti-Dark Mode" Fix)
 st.markdown("""
     <style>
-        /* --- GLOBAL RESET: FORCE WHITE MODE --- */
+        /* 1. FORCE BROWSER TO RENDER IN LIGHT MODE ONLY */
+        :root {
+            color-scheme: light;
+        }
+        
+        /* 2. MAIN CONTAINER BACKGROUND */
         .stApp {
-            background-color: #F4F7F6 !important; /* Very light medical grey background */
+            background-color: #F8F9FA !important; /* Professional Medical Grey */
             color: #000000 !important;
-            font-family: 'Segoe UI', sans-serif;
         }
 
-        /* --- 2. THE "APP-STYLE" NAVIGATION TABS (MAJOR UPGRADE) --- */
-        /* Remove default thin line */
-        .stTabs [data-baseweb="tab-list"] {
-            gap: 8px;
-            background-color: transparent;
-            padding-bottom: 10px;
-        }
-
-        /* INACTIVE TABS: White Buttons */
-        .stTabs [data-baseweb="tab"] {
-            height: 55px;
+        /* 3. INPUTS - FORCE WHITE BACKGROUND & BLACK TEXT */
+        input, textarea, select, .stNumberInput input {
             background-color: #FFFFFF !important;
-            color: #2C7A6F !important; /* Teal Text */
-            border: 2px solid #2C7A6F; /* Teal Border */
-            border-radius: 8px;
-            font-weight: 700;
-            font-size: 16px;
-            padding: 0px 15px;
-            flex-grow: 1; /* Stretch to fill width */
+            color: #000000 !important;
+            border: 1px solid #ced4da !important;
+            border-radius: 6px !important;
+        }
+        
+        /* Fix for Dropdowns (Gender, etc.) */
+        div[role="listbox"], ul {
+            background-color: #FFFFFF !important;
+            color: #000000 !important;
+        }
+        
+        /* 4. MEDICAL HISTORY TAGS (Fixing the "Weird Signs") */
+        /* This targets the selected items in Medical History & Teeth */
+        span[data-baseweb="tag"] {
+            background-color: #2C7A6F !important; /* Teal Background */
+            color: #FFFFFF !important; /* White Text */
+            font-weight: bold !important;
+            border-radius: 4px !important;
+        }
+        /* Fix the "X" remove icon color */
+        span[data-baseweb="tag"] i, span[data-baseweb="tag"] svg {
+            fill: #FFFFFF !important;
+            color: #FFFFFF !important;
         }
 
-        /* ACTIVE TAB: Solid Teal Button */
+        /* 5. TABS - MODERN "PILL" STYLE */
+        .stTabs [data-baseweb="tab-list"] {
+            gap: 10px;
+            background-color: transparent;
+            padding-bottom: 5px;
+        }
+        .stTabs [data-baseweb="tab"] {
+            background-color: #FFFFFF !important;
+            color: #333333 !important;
+            border: 1px solid #ccc !important;
+            border-radius: 20px !important; /* Rounded Pills */
+            padding: 8px 20px !important;
+            font-weight: 600 !important;
+        }
         .stTabs [aria-selected="true"] {
             background-color: #2C7A6F !important;
             color: #FFFFFF !important;
-            border: 2px solid #2C7A6F;
-            box-shadow: 0 4px 10px rgba(44, 122, 111, 0.3);
+            border: 1px solid #2C7A6F !important;
         }
 
-        /* --- 3. INPUT FIELDS (VISIBILITY FIX) --- */
-        input, select, textarea, .stNumberInput > div > div > input {
-            background-color: #FFFFFF !important;
-            color: #000000 !important;
-            border: 1px solid #999 !important;
-            border-radius: 6px !important;
-            padding: 10px !important;
-            font-size: 16px !important;
+        /* 6. LABELS & TEXT VISIBILITY */
+        label, p, h1, h2, h3, h4, h5, h6, .stMarkdown {
+            color: #212529 !important;
         }
         
-        /* Dropdown Menus (Fixing invisible items) */
-        div[role="listbox"] ul { background-color: white !important; }
-        div[role="listbox"] li { color: black !important; }
-
-        /* Labels (Name, Age, etc.) */
-        label, .stMarkdown p {
-            color: #000000 !important;
-            font-weight: 600 !important;
-            font-size: 15px !important;
-        }
-
-        /* --- 4. TOOTH SELECTOR FIX --- */
-        .stMultiSelect span {
-            font-weight: bold;
-            color: #2C7A6F;
-        }
-
-        /* --- 5. BUTTONS & WHATSAPP --- */
-        div.stButton > button {
-            background-color: #2C7A6F !important;
-            color: white !important;
-            border-radius: 8px;
-            height: 55px;
-            font-size: 18px;
-            font-weight: bold;
-            border: none;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-        }
-        
-        .stLinkButton > a {
-            background-color: #25D366 !important;
-            color: white !important;
-            border-radius: 8px;
-            height: 55px;
-            font-weight: bold;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            text-decoration: none;
-        }
-
+        /* Hide Streamlit Branding */
         #MainMenu, footer, header {visibility: hidden;}
     </style>
 """, unsafe_allow_html=True)
@@ -210,16 +189,16 @@ with c1:
 with c2: 
     st.markdown("<h3 style='margin-top:10px; color:#2C7A6F; font-weight:800;'>SUDANTAM OS</h3>", unsafe_allow_html=True)
 
-# MAIN NAVIGATION
+# TABS (PILL DESIGN)
 tabs = st.tabs(["NEW PATIENT", "BILLING", "RECORDS", "DUES", "SYNC"])
 
 # --- TAB 1: REGISTRATION ---
 with tabs[0]:
-    st.markdown("### 📝 Patient Registration")
-    with st.container(border=True):
+    st.markdown("##### 📝 Register New Patient")
+    with st.container():
         with st.form("reg", clear_on_submit=True):
             name = st.text_input("FULL NAME")
-            phone = st.text_input("PHONE NUMBER (10 Digits)")
+            phone = st.text_input("PHONE NUMBER")
             
             c1, c2 = st.columns(2)
             with c1: age = st.number_input("AGE", min_value=1, step=1)
@@ -229,63 +208,58 @@ with tabs[0]:
             
             st.markdown("---")
             if st.form_submit_button("✅ SAVE PATIENT"):
-                if not name: st.error("⚠️ Name is required!")
+                if not name: st.error("⚠️ Name Required!")
                 else:
                     new_row = {"Patient ID": len(df)+101, "Name": name, "Age": age, "Gender": gender, "Contact": phone, "Last Visit": datetime.date.today().strftime("%d-%m-%Y"), "Medical History": ", ".join(mh), "Pending Amount": 0, "Visit Log": ""}
                     df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True); save_data(df)
-                    st.success(f"Successfully Registered: {name}")
+                    st.success(f"Registered: {name}")
 
 # --- TAB 2: CLINICAL ---
 with tabs[1]:
-    st.markdown("### 🦷 Clinical & Billing")
-    with st.container(border=True):
-        pt_name = st.selectbox("SEARCH PATIENT", [""] + df["Name"].tolist())
+    st.markdown("##### 🦷 Treatment & Billing")
+    pt_name = st.selectbox("SEARCH PATIENT", [""] + df["Name"].tolist())
+    
+    if pt_name:
+        idx = df.index[df["Name"] == pt_name].tolist()[0]
+        row = df.iloc[idx]
         
-        if pt_name:
-            idx = df.index[df["Name"] == pt_name].tolist()[0]
-            row = df.iloc[idx]
-            
-            # TOOTH SELECTOR (FIXED VISIBILITY)
-            st.info("🦷 SELECT TEETH (FDI NOTATION)")
-            c1, c2 = st.columns(2)
-            with c1: ur = st.multiselect("UR (18-11)", ["18","17","16","15","14","13","12","11"])
-            with c2: ul = st.multiselect("UL (21-28)", ["21","22","23","24","25","26","27","28"])
-            c3, c4 = st.columns(2)
-            with c3: lr = st.multiselect("LR (48-41)", ["48","47","46","45","44","43","42","41"])
-            with c4: ll = st.multiselect("LL (31-38)", ["31","32","33","34","35","36","37","38"])
+        st.info("🦷 SELECT TEETH (FDI NOTATION)")
+        c1, c2 = st.columns(2)
+        with c1: ur = st.multiselect("UR (18-11)", ["18","17","16","15","14","13","12","11"])
+        with c2: ul = st.multiselect("UL (21-28)", ["21","22","23","24","25","26","27","28"])
+        c3, c4 = st.columns(2)
+        with c3: lr = st.multiselect("LR (48-41)", ["48","47","46","45","44","43","42","41"])
+        with c4: ll = st.multiselect("LL (31-38)", ["31","32","33","34","35","36","37","38"])
 
-            # LIVE PREVIEW
-            fdi_str = ", ".join(ur + ul + ll + lr)
-            if fdi_str:
-                st.success(f"**SELECTED:** {fdi_str}")
-            else:
-                st.caption("No teeth selected yet.")
+        # LIVE PREVIEW
+        fdi_str = ", ".join(ur + ul + ll + lr)
+        if fdi_str: st.success(f"**SELECTED:** {fdi_str}")
 
-            st.markdown("---")
-            diag = st.multiselect("DIAGNOSIS", ["Caries", "Pulpitis", "Periodontitis", "Fractured", "Mobility"])
-            meds = st.multiselect("PRESCRIPTION", ["Amoxicillin 500", "Augmentin 625", "Zerodol-SP", "Ketorol DT", "Pan-D", "Metrogyl 400"])
-            tx_reason = st.text_input("TREATMENT DONE")
+        st.markdown("---")
+        diag = st.multiselect("DIAGNOSIS", ["Caries", "Pulpitis", "Periodontitis", "Fractured", "Mobility"])
+        meds = st.multiselect("PRESCRIPTION", ["Amoxicillin 500", "Augmentin 625", "Zerodol-SP", "Ketorol DT", "Pan-D", "Metrogyl 400"])
+        tx_reason = st.text_input("TREATMENT DONE")
+        
+        c1, c2 = st.columns(2)
+        with c1: amount = st.number_input("TOTAL BILL", step=100)
+        with c2: paid = st.number_input("PAID NOW", step=100)
+        
+        if st.button("💾 SAVE & PRINT"):
+            due = (amount - paid) + (float(row['Pending Amount']) if row['Pending Amount'] else 0)
+            log = f"\n📅 {datetime.date.today()} | Tx: {tx_reason} | Teeth: {fdi_str} | Paid: {paid}"
+            df.at[idx, "Visit Log"] = str(row['Visit Log']) + log
+            df.at[idx, "Pending Amount"] = due
+            df.at[idx, "Affected Teeth"] = fdi_str
+            save_data(df)
             
-            c1, c2 = st.columns(2)
-            with c1: amount = st.number_input("TOTAL BILL", step=100)
-            with c2: paid = st.number_input("PAID NOW", step=100)
-            
-            if st.button("💾 SAVE & PRINT INVOICE"):
-                due = (amount - paid) + (float(row['Pending Amount']) if row['Pending Amount'] else 0)
-                log = f"\n📅 {datetime.date.today()} | Tx: {tx_reason} | Teeth: {fdi_str} | Paid: {paid}"
-                df.at[idx, "Visit Log"] = str(row['Visit Log']) + log
-                df.at[idx, "Pending Amount"] = due
-                df.at[idx, "Affected Teeth"] = fdi_str
-                save_data(df)
-                
-                pdf_path, pdf_name = generate_pdf_file(pt_name, str(row['Age']), datetime.date.today().strftime("%d-%m-%Y"), diag, meds, tx_reason, fdi_str, amount, paid, due)
-                st.success("Saved!")
-                with open(pdf_path, "rb") as f:
-                    st.download_button("🖨️ DOWNLOAD PDF", f, file_name=pdf_name, mime="application/pdf")
+            pdf_path, pdf_name = generate_pdf_file(pt_name, str(row['Age']), datetime.date.today().strftime("%d-%m-%Y"), diag, meds, tx_reason, fdi_str, amount, paid, due)
+            st.success("Saved!")
+            with open(pdf_path, "rb") as f:
+                st.download_button("🖨️ PDF", f, file_name=pdf_name, mime="application/pdf")
 
 # --- TAB 3: RECORDS ---
 with tabs[2]:
-    st.markdown("### 📂 Patient Database")
+    st.markdown("##### 📂 Patient Database")
     q = st.text_input("🔍 SEARCH NAME")
     if q:
         res = df[df["Name"].str.contains(q, case=False, na=False)]
@@ -304,7 +278,7 @@ with tabs[2]:
 
 # --- TAB 4: DUES ---
 with tabs[3]:
-    st.markdown("### 💰 Payment Manager")
+    st.markdown("##### 💰 Payment Manager")
     df["Pending Amount"] = pd.to_numeric(df["Pending Amount"], errors='coerce').fillna(0)
     defaulters = df[df["Pending Amount"] > 0]
     
@@ -318,7 +292,6 @@ with tabs[3]:
             curr = df.at[pay_idx, "Pending Amount"]
             st.info(f"Current Due: ₹{curr}")
             pay_now = st.number_input("AMOUNT RECEIVED", max_value=float(curr), step=100.0)
-            
             if st.button("✅ UPDATE BALANCE"):
                 df.at[pay_idx, "Pending Amount"] = curr - pay_now
                 save_data(df); st.success("Updated!"); st.rerun()
