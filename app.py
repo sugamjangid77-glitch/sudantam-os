@@ -14,30 +14,24 @@ st.set_page_config(page_title="Sudantam OS", layout="wide", page_icon="🦷")
 
 st.markdown("""
     <style>
-        /* FORCE LIGHT MODE COLORS */
+        /* FORCE LIGHT MODE */
         :root { color-scheme: light !important; }
-        
-        /* THE MAIN APP BACKGROUND */
-        .stApp {
-            background-color: #FFFFFF !important;
-        }
+        .stApp { background-color: #FFFFFF !important; }
 
-        /* --- LOGO SIZE --- */
+        /* --- LOGO UPGRADE --- */
         [data-testid="stImage"] img {
-            width: 200px !important;
+            width: 250px !important;
             border-radius: 10px;
-            margin-bottom: 20px;
+            margin-bottom: 30px;
         }
 
-        /* --- THE FIX: LABELS & INPUT TEXT --- */
-        /* This ensures "Name", "Age", "Phone" etc. are ALWAYS BLACK */
-        label, .stMarkdown p, .stText, p {
+        /* --- TEXT & LABEL VISIBILITY --- */
+        label, .stMarkdown p, p {
             color: #000000 !important;
             font-weight: 700 !important;
-            opacity: 1 !important;
         }
 
-        /* This ensures the BOXES are white and what you TYPE is black */
+        /* --- INPUT BOXES --- */
         input, textarea, [data-baseweb="select"] > div {
             background-color: #FFFFFF !important;
             color: #000000 !important;
@@ -45,7 +39,26 @@ st.markdown("""
             border-radius: 8px !important;
         }
 
-        /* --- PILL TABS (MODERN MEDICAL UI) --- */
+        /* --- DROPDOWN ARROW FIX --- */
+        /* Forces the dropdown icons to be simple teal arrows */
+        svg[data-testid="chevron-down"] {
+            fill: #2C7A6F !important;
+        }
+
+        /* --- BUTTONS (FIXING THE BLACK BUTTON) --- */
+        /* Target the specific registration/save buttons */
+        div.stButton > button {
+            background-color: #2C7A6F !important;
+            color: #FFFFFF !important; /* Force White Text */
+            font-weight: 800 !important;
+            font-size: 18px !important;
+            height: 60px !important;
+            border-radius: 12px !important;
+            border: none !important;
+            box-shadow: 0 4px 6px rgba(44, 122, 111, 0.2) !important;
+        }
+
+        /* --- MODERN PILL TABS --- */
         .stTabs [data-baseweb="tab-list"] {
             gap: 10px;
             background-color: #F0F2F6;
@@ -65,16 +78,6 @@ st.markdown("""
             color: #FFFFFF !important;
         }
 
-        /* --- BUTTONS --- */
-        div.stButton > button {
-            background-color: #2C7A6F !important;
-            color: #FFFFFF !important;
-            font-weight: 800 !important;
-            height: 55px !important;
-            border-radius: 10px !important;
-            border: none !important;
-        }
-
         /* Hide Default UI Elements */
         #MainMenu, footer, header {visibility: hidden;}
     </style>
@@ -88,7 +91,7 @@ LOGO_FILENAME = "logo.jpeg"
 if not os.path.exists(PRESCRIPTION_FOLDER): os.makedirs(PRESCRIPTION_FOLDER)
 
 # ==========================================
-# 2. DATA ENGINE (Cloud & Local)
+# 2. DATA ENGINE
 # ==========================================
 try:
     import gspread
@@ -142,11 +145,9 @@ df = load_data()
 # ==========================================
 # 3. INTERFACE
 # ==========================================
-# LOGO AT TOP
 if os.path.exists(LOGO_FILENAME):
     st.image(LOGO_FILENAME)
 
-# MODERN TABS
 tabs = st.tabs(["📝 REGISTRATION", "🦷 CLINICAL", "📂 RECORDS", "💰 DUES", "🔄 SYNC"])
 
 # --- TAB 1: REGISTRATION ---
@@ -160,9 +161,11 @@ with tabs[0]:
         with col1:
             age = st.number_input("AGE (YEARS)", min_value=1, step=1)
         with col2:
-            gender = st.selectbox("GENDER", ["Male", "Female", "Other"])
+            # Removed default "Male"
+            gender = st.selectbox("GENDER", ["", "Male", "Female", "Other"])
         
-        med_hx = st.multiselect("MEDICAL HISTORY", ["None", "Diabetes", "BP", "Thyroid", "Asthma", "Allergy"])
+        # Removed default "None"
+        med_hx = st.multiselect("MEDICAL HISTORY", ["Diabetes", "BP", "Thyroid", "Asthma", "Allergy"])
         
         if st.form_submit_button("✅ COMPLETE REGISTRATION"):
             if not name:
@@ -177,7 +180,7 @@ with tabs[0]:
                 save_data(df)
                 st.success(f"Registered: {name}")
 
-# --- TAB 2: CLINICAL (FDI SYSTEM) ---
+# --- TAB 2: CLINICAL ---
 with tabs[1]:
     st.markdown("### 🦷 Treatment & Billing")
     pt_select = st.selectbox("SEARCH PATIENT", [""] + df["Name"].tolist())
@@ -189,29 +192,27 @@ with tabs[1]:
         st.write("---")
         st.info("🦷 FDI Tooth Selection")
         c1, c2 = st.columns(2)
-        with c1: ur = st.multiselect("UR (18-11)", [str(x) for x in range(11, 19)][::-1])
-        with c2: ul = st.multiselect("UL (21-28)", [str(x) for x in range(21, 29)])
+        with c1: ur = st.multiselect("UR", [str(x) for x in range(11, 19)][::-1])
+        with c2: ul = st.multiselect("UL", [str(x) for x in range(21, 29)])
         c3, c4 = st.columns(2)
-        with c3: lr = st.multiselect("LR (48-41)", [str(x) for x in range(41, 49)][::-1])
-        with c4: ll = st.multiselect("LL (31-38)", [str(x) for x in range(31, 39)])
+        with c3: lr = st.multiselect("LR", [str(x) for x in range(41, 49)][::-1])
+        with c4: ll = st.multiselect("LL", [str(x) for x in range(31, 39)])
         
         fdi_sel = ", ".join(ur + ul + ll + lr)
         if fdi_sel: st.success(f"Selected: {fdi_sel}")
 
-        diag = st.multiselect("DIAGNOSIS", ["Caries", "Pulpitis", "Fracture", "Mobility"])
-        tx = st.text_input("TREATMENT DONE (e.g. RCT)")
-        
+        tx = st.text_input("TREATMENT DONE")
         c_bill1, c_bill2 = st.columns(2)
-        bill = c_bill1.number_input("BILL AMOUNT", step=100)
-        paid = c_bill2.number_input("PAID NOW", step=100)
+        bill = c_bill1.number_input("BILL", step=100)
+        paid = c_bill2.number_input("PAID", step=100)
         
-        if st.button("💾 SAVE TREATMENT"):
+        if st.form_submit_button("💾 SAVE TREATMENT"):
             due = (bill - paid) + (float(row['Pending Amount']) if row['Pending Amount'] else 0)
             log = f"\n📅 {datetime.date.today()} | Tx: {tx} | Teeth: {fdi_sel} | Paid: {paid}"
             df.at[idx, "Visit Log"] = str(row['Visit Log']) + log
             df.at[idx, "Pending Amount"] = due
             save_data(df)
-            st.success("Treatment Data Synced!")
+            st.success("Treatment Saved!")
 
 # --- TAB 3: RECORDS ---
 with tabs[2]:
@@ -220,10 +221,9 @@ with tabs[2]:
         results = df[df["Name"].str.contains(search_q, case=False, na=False)]
         for i, r in results.iterrows():
             with st.expander(f"{r['Name']} (Due: ₹{r['Pending Amount']})"):
-                st.write(f"📞 Contact: {r['Contact']}")
                 if r['Contact']:
                     wa_link = f"https://wa.me/91{r['Contact']}?text=Hello%20{r['Name']}"
-                    st.link_button("📲 WhatsApp Patient", wa_link)
+                    st.link_button("📲 WhatsApp", wa_link)
                 st.text_area("Visit History", r['Visit Log'], height=150)
 
 # --- TAB 4: DUES ---
@@ -232,7 +232,7 @@ with tabs[3]:
     defaulters = df[df["Pending Amount"] > 0]
     if not defaulters.empty:
         st.dataframe(defaulters[["Name", "Contact", "Pending Amount"]])
-        payer = st.selectbox("Select Payer to Clear Due", defaulters["Name"].unique())
+        payer = st.selectbox("Select Payer", [""] + defaulters["Name"].unique().tolist())
         if payer:
             p_idx = df.index[df["Name"] == payer].tolist()[0]
             current_due = df.at[p_idx, "Pending Amount"]
@@ -244,6 +244,6 @@ with tabs[3]:
 
 # --- TAB 5: SYNC ---
 with tabs[4]:
-    if st.button("🔄 Force Data Refresh"):
+    if st.button("🔄 Refresh Data"):
         st.cache_resource.clear()
         st.rerun()
