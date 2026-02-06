@@ -122,10 +122,6 @@ with tabs[1]:
         
         with st.form("tx_form"):
             st.info("🦷 FDI Tooth Selection")
-            
-
-[Image of FDI tooth numbering system]
-
             c1, c2 = st.columns(2)
             ur = c1.multiselect("UR (11-18)", [str(x) for x in range(11, 19)][::-1])
             ul = c2.multiselect("UL (21-28)", [str(x) for x in range(21, 29)])
@@ -138,7 +134,6 @@ with tabs[1]:
             tx_notes = st.text_area("CLINICAL NOTES / FINDINGS")
             
             st.markdown("**💊 PRESCRIPTION & DOSAGE**")
-            med_list = []
             col_m1, col_m2 = st.columns([2, 1])
             m1 = col_m1.multiselect("MEDICINES", ["Amoxicillin", "Augmentin 625", "Zerodol-SP", "Ketorol DT", "Pan-D", "Metrogyl"])
             dosage = col_m2.selectbox("FREQUENCY", ["", "1-0-1 (BD)", "1-1-1 (TDS)", "1-0-0 (OD)", "SOS (Emergency)"])
@@ -184,7 +179,7 @@ with tabs[2]:
                 st.write(f"⚠️ Medical History: {r['Medical History']}")
                 st.text_area("Full History", r['Visit Log'], height=200)
                 
-                # Download History PDF
+                # Download History PDF logic
                 pdf_hist = SudantamPDF()
                 pdf_hist.add_page()
                 pdf_hist.patient_info(r['Name'], r['Age'], r['Gender'], "Full Record")
@@ -205,10 +200,11 @@ with tabs[3]:
             payer = st.selectbox("Select Payer", [""] + defaulters["Name"].tolist())
             rec = st.number_input("Received Amount", step=100)
             if st.form_submit_button("✅ UPDATE BALANCE"):
-                p_idx = df.index[df["Name"] == payer].tolist()[0]
-                df.at[p_idx, "Pending Amount"] = float(df.at[p_idx, "Pending Amount"]) - rec
-                save_data(df)
-                st.rerun()
+                if payer:
+                    p_idx = df.index[df["Name"] == payer].tolist()[0]
+                    df.at[p_idx, "Pending Amount"] = float(df.at[p_idx, "Pending Amount"]) - rec
+                    save_data(df)
+                    st.rerun()
 
 # --- TAB 5: SYNC ---
 with tabs[4]:
