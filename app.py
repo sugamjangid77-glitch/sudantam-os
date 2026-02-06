@@ -15,22 +15,52 @@ st.set_page_config(page_title="Sudantam OS", layout="wide", page_icon="🦷")
 st.markdown("""
     <style>
         .stApp { background-color: #FFFFFF; color: #000000; }
+        
+        /* Text Inputs & Select Boxes */
+        .stTextInput, .stNumberInput, .stSelectbox, .stTextArea {
+            font-size: 16px;
+        }
+        
+        /* Buttons */
         div.stButton > button {
             background-color: #2C7A6F !important;
             color: white !important;
             border-radius: 8px;
-            font-size: 14px; /* Smaller font for tooth buttons */
-            height: 45px;
+            height: 50px;
             width: 100%;
-            margin: 2px;
             border: 1px solid #1e5c53;
+            font-weight: bold;
         }
-        /* Highlight selected teeth (Visual Hack) */
-        div.stButton > button:focus {
-            background-color: #D32F2F !important; 
-            border: 2px solid black;
+        
+        /* Link Buttons (WhatsApp) */
+        a[kind="header"] { display: none; }
+        .stLinkButton > a {
+            background-color: #25D366 !important; /* WhatsApp Green */
+            color: white !important;
+            border-radius: 8px;
+            height: 50px;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            text-decoration: none;
         }
-        input, select { background-color: #F8F9FA !important; color: black !important; }
+
+        /* Tabs */
+        .stTabs [data-baseweb="tab-list"] { gap: 8px; }
+        .stTabs [data-baseweb="tab"] {
+            background-color: #f0f2f6;
+            padding: 10px;
+            border-radius: 5px;
+            color: #2C7A6F;
+            font-weight: bold;
+        }
+        .stTabs [aria-selected="true"] {
+            background-color: #2C7A6F !important;
+            color: white !important;
+        }
+
         #MainMenu, footer, header {visibility: hidden;}
     </style>
 """, unsafe_allow_html=True)
@@ -155,26 +185,36 @@ tabs = st.tabs(["➕ NEW", "🦷 CLINICAL", "📂 RECORDS", "💰 DUES", "🔧 S
 
 # --- TAB 1: NEW ---
 with tabs[0]:
+    st.subheader("Register New Patient")
     with st.form("reg"):
-        name = st.text_input("Name"); phone = st.text_input("Phone")
-        c1, c2 = st.columns(2); age = c1.number_input("Age", 1, 100); gender = c2.selectbox("Sex", ["M", "F"])
-        mh = st.multiselect("Medical Hx", ["Diabetes", "BP", "Thyroid", "Asthma", "Allergy"])
-        if st.form_submit_button("✅ Save"):
-            new_row = {"Patient ID": len(df)+101, "Name": name, "Age": age, "Gender": gender, "Contact": phone, "Last Visit": datetime.date.today().strftime("%d-%m-%Y"), "Medical History": ", ".join(mh), "Pending Amount": 0, "Visit Log": ""}
-            df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
-            save_data(df); st.success(f"Added {name}")
+        name = st.text_input("Patient Name")
+        phone = st.text_input("Phone Number")
+        
+        c1, c2 = st.columns(2)
+        with c1: age = st.number_input("Age", min_value=1, max_value=100, step=1)
+        with c2: gender = st.selectbox("Gender", ["Male", "Female", "Other"])
+            
+        mh = st.multiselect("Medical History", ["Diabetes", "BP", "Thyroid", "Asthma", "Allergy"])
+        
+        if st.form_submit_button("✅ Register Patient"):
+            if not name:
+                st.error("Enter Name")
+            else:
+                new_row = {"Patient ID": len(df)+101, "Name": name, "Age": age, "Gender": gender, "Contact": phone, "Last Visit": datetime.date.today().strftime("%d-%m-%Y"), "Medical History": ", ".join(mh), "Pending Amount": 0, "Visit Log": ""}
+                df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
+                save_data(df)
+                st.success(f"Registered: {name}")
 
-# --- TAB 2: CLINICAL (FDI SYSTEM) ---
+# --- TAB 2: CLINICAL (FDI) ---
 with tabs[1]:
+    st.subheader("Treatment & Billing")
     pt_name = st.selectbox("Select Patient", [""] + df["Name"].tolist())
+    
     if pt_name:
         idx = df.index[df["Name"] == pt_name].tolist()[0]
         row = df.iloc[idx]
         
         st.info("🦷 FDI Tooth Selector")
-        
-        # --- FDI GRID ---
-        # Upper Right (18-11) | Upper Left (21-28)
         c1, c2 = st.columns(2)
         with c1:
             st.caption("Upper Right (UR)")
@@ -183,7 +223,6 @@ with tabs[1]:
             st.caption("Upper Left (UL)")
             ul = st.multiselect("UL (21-28)", ["21","22","23","24","25","26","27","28"])
         
-        # Lower Right (48-41) | Lower Left (31-38)
         c3, c4 = st.columns(2)
         with c3:
             st.caption("Lower Right (LR)")
@@ -192,21 +231,21 @@ with tabs[1]:
             st.caption("Lower Left (LL)")
             ll = st.multiselect("LL (31-38)", ["31","32","33","34","35","36","37","38"])
 
-        # Combine
         all_selected = ur + ul + ll + lr
         fdi_str = ", ".join(all_selected)
-        if fdi_str: st.success(f"Selected Teeth: {fdi_str}")
+        if fdi_str: st.success(f"Selected: {fdi_str}")
 
-        # Clinical
-        diag = st.multiselect("Diagnosis", ["Caries", "Pulpitis", "Periodontitis", "Fractured"])
-        meds = st.multiselect("Meds", ["Amoxicillin", "Augmentin", "Zerodol-SP", "Ketorol DT", "Pan-D"])
-        
         st.write("---")
-        tx_reason = st.text_input("Treatment Done")
-        c1, c2 = st.columns(2)
-        amount = c1.number_input("Bill", step=100); paid = c2.number_input("Paid", step=100)
+        diag = st.multiselect("Diagnosis", ["Caries", "Pulpitis", "Periodontitis", "Fractured"])
+        meds = st.multiselect("Medicines", ["Amoxicillin 500", "Augmentin 625", "Zerodol-SP", "Ketorol DT", "Pan-D", "Metrogyl 400"])
         
-        if st.button("💾 Save & PDF"):
+        tx_reason = st.text_input("Treatment Done")
+        
+        c1, c2 = st.columns(2)
+        with c1: amount = st.number_input("Total Bill", step=100)
+        with c2: paid = st.number_input("Paid Now", step=100)
+        
+        if st.button("💾 Save & Generate PDF"):
             due = (amount - paid) + (float(row['Pending Amount']) if row['Pending Amount'] else 0)
             log = f"\n📅 {datetime.date.today()} | Tx: {tx_reason} | Teeth: {fdi_str} | Paid: {paid}"
             df.at[idx, "Visit Log"] = str(row['Visit Log']) + log
@@ -215,37 +254,66 @@ with tabs[1]:
             save_data(df)
             
             pdf_path, pdf_name = generate_pdf_file(pt_name, str(row['Age']), datetime.date.today().strftime("%d-%m-%Y"), diag, meds, tx_reason, fdi_str, amount, paid, due)
-            st.success("Saved!")
+            st.success("✅ Saved!")
             with open(pdf_path, "rb") as f:
-                st.download_button("🖨️ PDF", f, file_name=pdf_name, mime="application/pdf")
+                st.download_button("🖨️ Download Invoice PDF", f, file_name=pdf_name, mime="application/pdf")
 
-# --- TAB 3: RECORDS ---
+# --- TAB 3: RECORDS (With Messaging) ---
 with tabs[2]:
-    q = st.text_input("🔍 Search"); 
+    st.subheader("Patient Records")
+    q = st.text_input("🔍 Search Name (Type to find)")
+    
     if q:
         res = df[df["Name"].str.contains(q, case=False, na=False)]
         for i, r in res.iterrows():
-            with st.expander(f"{r['Name']} (Due: ₹{r['Pending Amount']})"):
-                st.write(f"📞 {r['Contact']}"); st.write(f"⚠️ {r['Medical History']}")
-                st.text_area("Log", r['Visit Log'])
+            with st.expander(f"{r['Name']} (Age: {r['Age']})"):
+                # Contact Info & Message Button
+                c1, c2 = st.columns([2, 1])
+                with c1:
+                    st.write(f"📞 **Phone:** {r['Contact']}")
+                    st.write(f"⚠️ **Medical Hx:** {r['Medical History']}")
+                    st.info(f"💰 **Pending Due:** ₹{r['Pending Amount']}")
+                with c2:
+                    if r['Contact']:
+                        msg = f"Hello {r['Name']}, this is Dr. Sugam from Sudantam Dental Clinic."
+                        link = f"https://wa.me/91{r['Contact']}?text={urllib.parse.quote(msg)}"
+                        st.link_button("📲 WhatsApp", link)
+                
+                # History Log
+                st.write("---")
+                st.write("**Visit History:**")
+                st.text(r['Visit Log'])
 
 # --- TAB 4: DUES ---
 with tabs[3]:
+    st.subheader("Payment Defaulters")
     df["Pending Amount"] = pd.to_numeric(df["Pending Amount"], errors='coerce').fillna(0)
     defaulters = df[df["Pending Amount"] > 0]
+    
     if not defaulters.empty:
         st.dataframe(defaulters[["Name", "Contact", "Pending Amount"]])
-        pay_name = st.selectbox("Select Payer", defaulters["Name"].unique())
+        
+        st.markdown("#### Clear Dues")
+        pay_name = st.selectbox("Select Patient to Pay", defaulters["Name"].unique())
+        
         if pay_name:
             pay_idx = df.index[df["Name"] == pay_name].tolist()[0]
             curr = df.at[pay_idx, "Pending Amount"]
-            st.info(f"Due: ₹{curr}")
-            pay_now = st.number_input("Amount Received", max_value=float(curr), step=100.0)
-            if st.button("✅ Clear Due"):
+            st.info(f"Current Due: ₹{curr}")
+            
+            pay_now = st.number_input("Amount Received", min_value=0.0, max_value=float(curr), step=100.0)
+            
+            if st.button("✅ Update Balance"):
                 df.at[pay_idx, "Pending Amount"] = curr - pay_now
-                save_data(df); st.rerun()
-    else: st.success("No Dues!")
+                save_data(df)
+                st.success("Balance Updated!")
+                st.rerun()
+    else:
+        st.success("No Pending Dues!")
 
 # --- TAB 5: SYNC ---
 with tabs[4]:
-    if st.button("🔄 Force Sync"): st.cache_resource.clear(); st.rerun()
+    st.subheader("Settings")
+    if st.button("🔄 Force Cloud Sync"):
+        st.cache_resource.clear()
+        st.rerun()
