@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 import datetime
 import os
-import urllib.parse
 from fpdf import FPDF
 
 # ==========================================
@@ -17,7 +16,7 @@ st.markdown("""
         
         /* --- LARGE CENTERED LOGO --- */
         [data-testid="stImage"] { display: flex; justify-content: center; }
-        [data-testid="stImage"] img { width: 300px !important; border-radius: 15px; }
+        [data-testid="stImage"] img { width: 320px !important; border-radius: 15px; }
 
         /* --- LABELS & INPUTS --- */
         label, p, .stMarkdown { color: #000000 !important; font-weight: 700 !important; }
@@ -76,8 +75,9 @@ class SudantamPDF(FPDF):
 LOCAL_DB_FILE = "sudantam_patients.csv"
 LOGO_FILENAME = "logo.jpeg"
 
-if 'temp_rx' not in st.session_state:
-    st.session_state.temp_rx = []
+# Initialize Session States
+if 'temp_rx' not in st.session_state: st.session_state.temp_rx = []
+if 'pdf_ready' not in st.session_state: st.session_state.pdf_ready = None
 
 def load_data():
     if os.path.exists(LOCAL_DB_FILE):
@@ -92,7 +92,7 @@ df = load_data()
 if os.path.exists(LOGO_FILENAME):
     st.image(LOGO_FILENAME)
 
-tabs = st.tabs(["📋 REGISTRATION", "🦷 CLINICAL", "📂 RECORDS", "💰 DUES", "🔄 SYNC"])
+tabs = st.tabs(["📝 REGISTRATION", "🦷 CLINICAL", "📂 RECORDS", "💰 DUES", "🔄 SYNC"])
 
 # --- TAB 1: REGISTRATION ---
 with tabs[0]:
@@ -103,7 +103,7 @@ with tabs[0]:
         c1, c2 = st.columns(2)
         with c1: age = st.number_input("AGE", min_value=1, step=1)
         with c2: gender = st.selectbox("GENDER", ["", "Male", "Female", "Other"])
-        mh = st.multiselect("MEDICAL HISTORY", ["None", "Diabetes", "BP", "Thyroid", "Asthma", "Allergy"])
+        mh = st.multiselect("MEDICAL HISTORY", ["Diabetes", "BP", "Thyroid", "Asthma", "Allergy"])
         
         if st.form_submit_button("✅ REGISTER PATIENT"):
             if name:
@@ -113,7 +113,7 @@ with tabs[0]:
                 st.success(f"Registered: {name}")
                 st.rerun()
 
-# --- TAB 2: CLINICAL ---
+# --- TAB 2: CLINICAL (FIXED PDF LOGIC) ---
 with tabs[1]:
     st.markdown("### 🦷 Treatment & Prescription")
     pt_select = st.selectbox("SEARCH PATIENT", [""] + df["Name"].tolist())
@@ -124,7 +124,9 @@ with tabs[1]:
         
         st.info("🦷 FDI Tooth Selection")
         
-        # Quadrants
+
+[Image of FDI tooth numbering system]
+
         c1, c2 = st.columns(2)
         ur = c1.multiselect("UR (11-18)", [str(x) for x in range(11, 19)][::-1])
         ul = c2.multiselect("UL (21-28)", [str(x) for x in range(21, 29)])
@@ -157,7 +159,8 @@ with tabs[1]:
             bill = b1.number_input("BILL", step=100)
             paid = b2.number_input("PAID", step=100)
             
-            if st.form_submit_button("💾 SAVE & GENERATE PDF"):
+            # THE SAVE BUTTON
+            if st.form_submit_button("💾 SAVE TREATMENT"):
                 fdi = ", ".join(ur + ul + lr + ll)
                 rx_str = " | ".join([f"{m['Medicine']} ({m['Dosage']})" for m in st.session_state.temp_rx])
                 due = (bill - paid) + float(row['Pending Amount'] if row['Pending Amount'] else 0)
@@ -167,28 +170,28 @@ with tabs[1]:
                 df.at[idx, "Pending Amount"] = due
                 df.to_csv(LOCAL_DB_FILE, index=False)
                 
-                # PDF Generation
+                # Prepare PDF Data for outside the form
                 pdf = SudantamPDF()
                 pdf.add_page()
                 pdf.set_font('Arial', 'B', 12)
                 pdf.cell(0, 10, f"Patient: {row['Name']} ({row['Age']}/{row['Gender']})", 0, 1)
-                pdf.ln(5)
                 pdf.cell(0, 10, f"Treatment: {tx_done} (Teeth: {fdi})", 0, 1)
                 pdf.set_font('Arial', '', 11)
-                pdf.multi_cell(0, 8, f"Notes: {notes}")
-                pdf.ln(5)
-                pdf.set_font('Arial', 'B', 11); pdf.cell(0, 10, "Prescription:", 0, 1)
-                pdf.set_font('Arial', '', 10)
-                for m in st.session_state.temp_rx:
-                    pdf.cell(0, 7, f"- {m['Medicine']} : {m['Dosage']} for {m['Duration']}", 0, 1)
+                pdf.multi_cell(0, 8, f"Notes: {notes}\nPrescription:\n" + "\n".join([f"- {m['Medicine']} ({m['Dosage']})" for m in st.session_state.temp_rx]))
                 
                 pdf_name = f"Rx_{row['Name']}.pdf"
                 pdf.output(pdf_name)
-                st.session_state.temp_rx = []
-                
-                with open(pdf_name, "rb") as f:
-                    st.download_button("📥 DOWNLOAD PDF", f, file_name=pdf_name)
-                st.success("Record Saved!")
+                st.session_state.pdf_ready = pdf_name
+                st.session_state.temp_rx = [] 
+                st.rerun()
+
+        # THE DOWNLOAD BUTTON (LOCATED OUTSIDE THE FORM)
+        if st.session_state.pdf_ready:
+            with open(st.session_state.pdf_ready, "rb") as f:
+                st.download_button("📥 DOWNLOAD PDF PRESCRIPTION", f, file_name=st.session_state.pdf_ready)
+            if st.button("✅ Done (Clear)"):
+                st.session_state.pdf_ready = None
+                st.rerun()
 
 # --- TAB 3: RECORDS ---
 with tabs[2]:
@@ -200,7 +203,7 @@ with tabs[2]:
                 st.write(f"📞 Contact: {r['Contact']}")
                 st.text_area("History", r['Visit Log'], height=150)
                 
-                # Download Registry PDF
+                # History PDF Download
                 pdf_h = SudantamPDF()
                 pdf_h.add_page()
                 pdf_h.set_font('Arial', 'B', 12); pdf_h.cell(0, 10, f"Record: {r['Name']}", 0, 1)
