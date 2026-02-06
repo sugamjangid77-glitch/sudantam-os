@@ -8,81 +8,102 @@ import base64
 from fpdf import FPDF
 
 # ==========================================
-# 1. THEME CONFIGURATION (STRICT FORCE MODE)
+# 1. THEME CONFIGURATION (SURGICAL FIX)
 # ==========================================
 st.set_page_config(page_title="Sudantam OS", layout="wide", page_icon="🦷")
 
 st.markdown("""
     <style>
-        /* 1. FORCE SYSTEM TO LIGHT MODE */
-        :root {
-            color-scheme: light !important;
-        }
-
-        /* 2. MAIN BACKGROUND - FORCE WHITE */
+        /* --- 1. MAIN LAYOUT (White Mode) --- */
         .stApp {
-            background-color: #ffffff !important;
-        }
-        
-        /* 3. INPUTS & DROPDOWNS (THE "BLANK MENU" FIX) */
-        /* This targets the box you click */
-        div[data-baseweb="select"] > div {
-            background-color: #ffffff !important;
-            color: #000000 !important;
-            border: 1px solid #000000 !important;
-        }
-        
-        /* This targets the POPUP MENU (The part that was blank) */
-        div[data-baseweb="popover"], div[data-baseweb="menu"], ul {
-            background-color: #ffffff !important;
-            color: #000000 !important;
-        }
-        
-        /* Force list items to be black text */
-        li {
+            background-color: #F8F9FA !important;
             color: #000000 !important;
         }
 
-        /* 4. TEXT INPUTS */
+        /* --- 2. INPUT FIELDS (Text, Numbers) --- */
         input, textarea, .stNumberInput input {
-            background-color: #ffffff !important;
+            background-color: #FFFFFF !important;
+            color: #000000 !important;
+            border: 1px solid #ced4da !important;
+            border-radius: 8px !important;
+        }
+
+        /* --- 3. DROPDOWNS (The "Blank Menu" Fix) --- */
+        /* The box you click */
+        div[data-baseweb="select"] > div {
+            background-color: #FFFFFF !important;
             color: #000000 !important;
             border: 1px solid #ced4da !important;
         }
-        
-        /* 5. FIX "BLACK TABS" (Navigation) */
-        /* The container for the tabs */
-        div[data-baseweb="tab-list"] {
-            background-color: #f0f2f6 !important; /* Light Grey Bar */
-            padding: 10px !important;
-            border-radius: 10px !important;
+        /* The POPUP MENU */
+        div[role="listbox"], ul {
+            background-color: #FFFFFF !important;
         }
-        
-        /* The Tab Buttons themselves */
-        button[data-baseweb="tab"] {
-            background-color: #ffffff !important;
-            color: #000000 !important; /* Force Black Text */
-            border: 1px solid #ccc !important;
+        li[role="option"] {
+            color: #000000 !important;
+            background-color: #FFFFFF !important;
         }
-        
-        /* The Selected Tab */
-        button[data-baseweb="tab"][aria-selected="true"] {
-            background-color: #2C7A6F !important; /* Teal */
-            color: #ffffff !important; /* White Text */
-            border: none !important;
-        }
-
-        /* 6. TEXT VISIBILITY (Headers, Labels) */
-        p, h1, h2, h3, h4, h5, h6, label, span {
+        /* The selected text inside the box */
+        div[data-baseweb="select"] span {
             color: #000000 !important;
         }
-        
-        /* 7. MEDICAL TAGS (Fix "Weird Signs") */
+
+        /* --- 4. MULTISELECT TAGS (Fixing "Weird Signs") --- */
         span[data-baseweb="tag"] {
-            background-color: #2C7A6F !important;
-            color: white !important;
+            background-color: #2C7A6F !important; /* Teal */
+            border-radius: 20px !important;
+        }
+        /* The text inside the tag */
+        span[data-baseweb="tag"] span {
+            color: #FFFFFF !important; /* White Text */
+        }
+        /* The "X" (Remove) Icon */
+        span[data-baseweb="tag"] svg {
+            fill: #FFFFFF !important;
+            color: #FFFFFF !important;
         }
 
+        /* --- 5. BUTTONS (Fixing Invisible Text) --- */
+        div.stButton > button {
+            background-color: #2C7A6F !important;
+            color: #FFFFFF !important; /* Force White Text */
+            border: none !important;
+            border-radius: 8px !important;
+            font-size: 16px !important;
+            font-weight: bold !important;
+            height: 50px !important;
+        }
+        div.stButton > button:hover {
+            background-color: #1e5c53 !important;
+            color: #FFFFFF !important;
+        }
+
+        /* --- 6. TABS (Restoring "Pill" Look) --- */
+        .stTabs [data-baseweb="tab-list"] {
+            gap: 8px;
+            background-color: transparent;
+            padding-bottom: 10px;
+        }
+        .stTabs [data-baseweb="tab"] {
+            height: 50px;
+            background-color: #FFFFFF !important;
+            color: #2C7A6F !important;
+            border: 1px solid #2C7A6F !important;
+            border-radius: 25px !important; /* Pill Shape */
+            padding: 0px 20px !important;
+            font-weight: bold !important;
+        }
+        .stTabs [aria-selected="true"] {
+            background-color: #2C7A6F !important;
+            color: #FFFFFF !important;
+        }
+
+        /* --- 7. LABELS & HEADERS --- */
+        label, p, h1, h2, h3, h4, h5, h6 {
+            color: #212529 !important;
+        }
+
+        /* Hide Streamlit Branding */
         #MainMenu, footer, header {visibility: hidden;}
     </style>
 """, unsafe_allow_html=True)
@@ -95,7 +116,7 @@ LOGO_FILENAME = "logo.jpeg"
 if not os.path.exists(PRESCRIPTION_FOLDER): os.makedirs(PRESCRIPTION_FOLDER)
 
 # ==========================================
-# 2. CLOUD SYNC
+# 2. DATA ENGINE
 # ==========================================
 try:
     import gspread
@@ -192,7 +213,7 @@ with c1:
 with c2: 
     st.markdown("<h3 style='margin-top:10px; color:#2C7A6F; font-weight:800;'>SUDANTAM OS</h3>", unsafe_allow_html=True)
 
-# TABS
+# TABS (Pill Style)
 tabs = st.tabs(["NEW PATIENT", "BILLING", "RECORDS", "DUES", "SYNC"])
 
 # --- TAB 1: NEW PATIENT ---
@@ -210,7 +231,7 @@ with tabs[0]:
             mh = st.multiselect("MEDICAL HISTORY", ["None", "Diabetes", "BP", "Thyroid", "Asthma", "Allergy", "Cardiac"], default=["None"])
             
             st.markdown("---")
-            if st.form_submit_button("✅ SAVE PATIENT"):
+            if st.form_submit_button("✅ REGISTER PATIENT"):
                 if not name: st.error("⚠️ Name Required!")
                 else:
                     new_row = {"Patient ID": len(df)+101, "Name": name, "Age": age, "Gender": gender, "Contact": phone, "Last Visit": datetime.date.today().strftime("%d-%m-%Y"), "Medical History": ", ".join(mh), "Pending Amount": 0, "Visit Log": ""}
@@ -234,7 +255,6 @@ with tabs[1]:
         with c3: lr = st.multiselect("LR (48-41)", ["48","47","46","45","44","43","42","41"])
         with c4: ll = st.multiselect("LL (31-38)", ["31","32","33","34","35","36","37","38"])
 
-        # Live Preview Box
         fdi_str = ", ".join(ur + ul + ll + lr)
         if fdi_str: st.success(f"**SELECTED:** {fdi_str}")
 
