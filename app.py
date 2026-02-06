@@ -8,34 +8,70 @@ import base64
 from fpdf import FPDF
 
 # ==========================================
-# 1. CONFIG & THEME
+# 1. CONFIG & HIGH-CONTRAST THEME
 # ==========================================
 st.set_page_config(page_title="Sudantam OS", layout="wide", page_icon="🦷")
 
 st.markdown("""
     <style>
-        .stApp { background-color: #FFFFFF; color: #000000; }
-        
-        /* Text Inputs & Select Boxes */
-        .stTextInput, .stNumberInput, .stSelectbox, .stTextArea {
-            font-size: 16px;
+        /* 1. Global White Theme */
+        .stApp {
+            background-color: #FFFFFF;
+            color: #000000;
         }
         
-        /* Buttons */
+        /* 2. TAB STYLING (The Fix) */
+        /* Container for tabs */
+        .stTabs [data-baseweb="tab-list"] {
+            gap: 5px;
+            background-color: #ffffff;
+            padding: 5px;
+        }
+        /* Unselected Tabs: White Back, Black Text */
+        .stTabs [data-baseweb="tab"] {
+            height: 50px;
+            background-color: #FFFFFF !important;
+            color: #000000 !important;
+            border: 1px solid #ced4da; /* Grey border to see the box */
+            border-radius: 5px;
+            font-weight: bold;
+            font-size: 16px;
+        }
+        /* Selected Tab: Teal Back, White Text */
+        .stTabs [aria-selected="true"] {
+            background-color: #2C7A6F !important;
+            color: #FFFFFF !important;
+            border: none;
+        }
+
+        /* 3. INPUTS & DROPDOWNS */
+        .stTextInput, .stNumberInput, .stSelectbox, .stTextArea {
+            font-size: 16px;
+            color: black !important;
+        }
+        
+        /* Force dropdown backgrounds to be white */
+        div[data-baseweb="select"] > div {
+            background-color: #F8F9FA !important;
+            border: 1px solid #ced4da !important;
+            color: black !important;
+        }
+        
+        /* 4. BUTTONS */
         div.stButton > button {
             background-color: #2C7A6F !important;
             color: white !important;
             border-radius: 8px;
             height: 50px;
             width: 100%;
-            border: 1px solid #1e5c53;
+            border: none;
             font-weight: bold;
+            font-size: 16px;
         }
         
-        /* Link Buttons (WhatsApp) */
-        a[kind="header"] { display: none; }
+        /* Whatsapp Button Style */
         .stLinkButton > a {
-            background-color: #25D366 !important; /* WhatsApp Green */
+            background-color: #25D366 !important;
             color: white !important;
             border-radius: 8px;
             height: 50px;
@@ -45,20 +81,6 @@ st.markdown("""
             justify-content: center;
             font-weight: bold;
             text-decoration: none;
-        }
-
-        /* Tabs */
-        .stTabs [data-baseweb="tab-list"] { gap: 8px; }
-        .stTabs [data-baseweb="tab"] {
-            background-color: #f0f2f6;
-            padding: 10px;
-            border-radius: 5px;
-            color: #2C7A6F;
-            font-weight: bold;
-        }
-        .stTabs [aria-selected="true"] {
-            background-color: #2C7A6F !important;
-            color: white !important;
         }
 
         #MainMenu, footer, header {visibility: hidden;}
@@ -214,22 +236,21 @@ with tabs[1]:
         idx = df.index[df["Name"] == pt_name].tolist()[0]
         row = df.iloc[idx]
         
+        # Grid Layout for Tooth Chart
         st.info("🦷 FDI Tooth Selector")
+        st.caption("Select teeth from the quadrants below:")
+        
         c1, c2 = st.columns(2)
         with c1:
-            st.caption("Upper Right (UR)")
-            ur = st.multiselect("UR (18-11)", ["18","17","16","15","14","13","12","11"])
+            ur = st.multiselect("Upper Right (18-11)", ["18","17","16","15","14","13","12","11"])
         with c2:
-            st.caption("Upper Left (UL)")
-            ul = st.multiselect("UL (21-28)", ["21","22","23","24","25","26","27","28"])
+            ul = st.multiselect("Upper Left (21-28)", ["21","22","23","24","25","26","27","28"])
         
         c3, c4 = st.columns(2)
         with c3:
-            st.caption("Lower Right (LR)")
-            lr = st.multiselect("LR (48-41)", ["48","47","46","45","44","43","42","41"])
+            lr = st.multiselect("Lower Right (48-41)", ["48","47","46","45","44","43","42","41"])
         with c4:
-            st.caption("Lower Left (LL)")
-            ll = st.multiselect("LL (31-38)", ["31","32","33","34","35","36","37","38"])
+            ll = st.multiselect("Lower Left (31-38)", ["31","32","33","34","35","36","37","38"])
 
         all_selected = ur + ul + ll + lr
         fdi_str = ", ".join(all_selected)
@@ -277,7 +298,7 @@ with tabs[2]:
                     if r['Contact']:
                         msg = f"Hello {r['Name']}, this is Dr. Sugam from Sudantam Dental Clinic."
                         link = f"https://wa.me/91{r['Contact']}?text={urllib.parse.quote(msg)}"
-                        st.link_button("📲 WhatsApp", link)
+                        st.link_button("📲 Chat", link)
                 
                 # History Log
                 st.write("---")
