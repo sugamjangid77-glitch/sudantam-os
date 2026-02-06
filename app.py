@@ -75,7 +75,6 @@ class SudantamPDF(FPDF):
 LOCAL_DB_FILE = "sudantam_patients.csv"
 LOGO_FILENAME = "logo.jpeg"
 
-# Initialize Session States
 if 'temp_rx' not in st.session_state: st.session_state.temp_rx = []
 if 'pdf_ready' not in st.session_state: st.session_state.pdf_ready = None
 
@@ -113,7 +112,7 @@ with tabs[0]:
                 st.success(f"Registered: {name}")
                 st.rerun()
 
-# --- TAB 2: CLINICAL (FIXED PDF LOGIC) ---
+# --- TAB 2: CLINICAL (FIXED SYNTAX) ---
 with tabs[1]:
     st.markdown("### 🦷 Treatment & Prescription")
     pt_select = st.selectbox("SEARCH PATIENT", [""] + df["Name"].tolist())
@@ -122,11 +121,8 @@ with tabs[1]:
         idx = df.index[df["Name"] == pt_select].tolist()[0]
         row = df.iloc[idx]
         
-        st.info("🦷 FDI Tooth Selection")
+        st.info("🦷 FDI Tooth Selection Reference (11-48)")
         
-
-[Image of FDI tooth numbering system]
-
         c1, c2 = st.columns(2)
         ur = c1.multiselect("UR (11-18)", [str(x) for x in range(11, 19)][::-1])
         ul = c2.multiselect("UL (21-28)", [str(x) for x in range(21, 29)])
@@ -159,7 +155,6 @@ with tabs[1]:
             bill = b1.number_input("BILL", step=100)
             paid = b2.number_input("PAID", step=100)
             
-            # THE SAVE BUTTON
             if st.form_submit_button("💾 SAVE TREATMENT"):
                 fdi = ", ".join(ur + ul + lr + ll)
                 rx_str = " | ".join([f"{m['Medicine']} ({m['Dosage']})" for m in st.session_state.temp_rx])
@@ -170,7 +165,7 @@ with tabs[1]:
                 df.at[idx, "Pending Amount"] = due
                 df.to_csv(LOCAL_DB_FILE, index=False)
                 
-                # Prepare PDF Data for outside the form
+                # Create PDF
                 pdf = SudantamPDF()
                 pdf.add_page()
                 pdf.set_font('Arial', 'B', 12)
@@ -185,7 +180,6 @@ with tabs[1]:
                 st.session_state.temp_rx = [] 
                 st.rerun()
 
-        # THE DOWNLOAD BUTTON (LOCATED OUTSIDE THE FORM)
         if st.session_state.pdf_ready:
             with open(st.session_state.pdf_ready, "rb") as f:
                 st.download_button("📥 DOWNLOAD PDF PRESCRIPTION", f, file_name=st.session_state.pdf_ready)
@@ -203,7 +197,6 @@ with tabs[2]:
                 st.write(f"📞 Contact: {r['Contact']}")
                 st.text_area("History", r['Visit Log'], height=150)
                 
-                # History PDF Download
                 pdf_h = SudantamPDF()
                 pdf_h.add_page()
                 pdf_h.set_font('Arial', 'B', 12); pdf_h.cell(0, 10, f"Record: {r['Name']}", 0, 1)
@@ -230,5 +223,4 @@ with tabs[3]:
 
 # --- TAB 5: SYNC ---
 with tabs[4]:
-    if st.button("🔄 REFRESH SYSTEM"):
-        st.rerun()
+    if st.button("🔄 REFRESH SYSTEM"): st.rerun()
