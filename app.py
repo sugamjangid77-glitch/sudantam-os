@@ -99,7 +99,7 @@ LOGO_FILENAME = "logo.jpeg"
 
 # Initialize Session Lists
 if 'temp_rx' not in st.session_state: st.session_state.temp_rx = []
-if 'temp_tx' not in st.session_state: st.session_state.temp_tx = []  # Stores (Tooth, Treatment, Cost)
+if 'temp_tx' not in st.session_state: st.session_state.temp_tx = []
 if 'pdf_ready' not in st.session_state: st.session_state.pdf_ready = None
 
 def load_data():
@@ -165,10 +165,26 @@ with tabs[1]:
                 "Full Mouth", "Upper Arch", "Lower Arch"
             ])
         with col_t2:
+            # RESTORED FULL LIST
             tx_type = st.selectbox("Procedure", [
-                "", "Consultation", "Scaling & Polishing", "Composite Filling", "Root Canal (RCT)",
-                "Extraction", "Impacted Extraction", "PFM Crown", "Zirconia Crown", "Bridge", 
-                "Complete Denture", "Implant", "Veneers", "X-Ray (IOPA)"
+                "", 
+                "Consultation", 
+                "Scaling & Polishing", 
+                "Composite Filling", 
+                "Root Canal (RCT)",
+                "Simple Extraction", 
+                "Impacted Molar Extraction (Surgical)", 
+                "Orthodontics: Metal Braces",
+                "Orthodontics: Ceramic Braces", 
+                "Orthodontics: Invisible Braces (Invisalign)",
+                "Prosthetics: PFM Crown", 
+                "Prosthetics: Zirconia Crown", 
+                "Prosthetics: Bridge", 
+                "Complete Denture",
+                "Removable Partial Denture (RPD)",
+                "Implant", 
+                "Veneers", 
+                "X-Ray (IOPA)"
             ])
             tx_cost = st.number_input("Cost (Optional)", step=100, value=0)
 
@@ -177,7 +193,6 @@ with tabs[1]:
                 st.session_state.temp_tx.append({"Tooth": tooth_num, "Treatment": tx_type, "Cost": tx_cost})
                 st.rerun()
 
-        # Show Added Treatments
         if st.session_state.temp_tx:
             st.markdown("##### **Planned Procedures:**")
             st.dataframe(pd.DataFrame(st.session_state.temp_tx))
@@ -215,13 +230,11 @@ with tabs[1]:
             next_visit = st.date_input("Next Visit Date", value=None)
             
             c_bill1, c_bill2 = st.columns(2)
-            # Auto-sum logic (optional, user can override)
             suggested_total = sum([x['Cost'] for x in st.session_state.temp_tx])
             bill = c_bill1.number_input("TOTAL BILL", value=float(suggested_total), step=100.0)
             paid = c_bill2.number_input("PAID NOW", step=100.0, value=0.0)
             
             if st.form_submit_button("💾 SAVE & PRINT INVOICE"):
-                # Data Prep
                 tx_summary = ", ".join([f"{t['Tooth']}: {t['Treatment']}" for t in st.session_state.temp_tx])
                 rx_summary = ", ".join([f"{m['Medicine']}" for m in st.session_state.temp_rx])
                 
@@ -230,18 +243,17 @@ with tabs[1]:
                 total_outstanding = old_balance + current_due
                 today_str = datetime.date.today().strftime("%Y-%m-%d")
                 
-                # Save to DB
                 log = f"\n📅 {today_str}\nProcedures: {tx_summary}\nRx: {rx_summary}\nPaid: {paid}\nNext Visit: {next_visit}"
                 df.at[idx, "Visit Log"] = str(row['Visit Log']) + log
                 df.at[idx, "Pending Amount"] = total_outstanding
                 df.at[idx, "Last Visit"] = today_str
                 df.to_csv(LOCAL_DB_FILE, index=False)
                 
-                # --- PDF GENERATION (PROFESSIONAL TABLE) ---
+                # --- PDF GENERATION ---
                 pdf = SudantamPDF()
                 pdf.add_page()
                 
-                # Patient Info Grid
+                # Header
                 pdf.set_font('Arial', '', 11)
                 pdf.cell(100, 8, clean_text(f"Patient Name: {row['Name']}"), 0, 0)
                 pdf.cell(0, 8, clean_text(f"Date: {today_str}"), 0, 1, 'R')
@@ -276,7 +288,7 @@ with tabs[1]:
                         pdf.cell(50, 8, clean_text(rx['Duration']), 1, 1, 'C')
                     pdf.ln(5)
                 
-                # Notes & Next Visit
+                # Notes
                 if notes or next_visit:
                     pdf.section_title("NOTES")
                     pdf.set_font('Arial', '', 10)
@@ -284,8 +296,8 @@ with tabs[1]:
                     if next_visit: pdf.cell(0, 8, clean_text(f"Next Visit Date: {next_visit}"), 0, 1)
                     pdf.ln(5)
                 
-                # Invoice Summary (Bottom Right)
-                pdf.set_x(110) # Move to right side
+                # Invoice Summary
+                pdf.set_x(110)
                 pdf.set_font('Arial', 'B', 12)
                 pdf.cell(50, 8, "Total Bill:", 0, 0, 'R'); pdf.cell(30, 8, clean_text(f"Rs. {bill}"), 0, 1, 'R')
                 pdf.set_x(110)
@@ -336,7 +348,6 @@ with tabs[2]:
         st.warning(f"**Pending Dues:** Rs. {row['Pending Amount']}")
         st.text_area("History", row['Visit Log'], height=150)
         
-        # Edit/Delete UI
         c_edit, c_del = st.columns(2)
         with c_edit.expander("✏️ EDIT"):
             with st.form("edit"):
