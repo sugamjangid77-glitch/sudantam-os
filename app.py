@@ -36,9 +36,8 @@ def generate_assets():
 generate_assets()
 
 # ==========================================
-# 1. GOOGLE SHEETS CONFIGURATION (WITH FIX)
+# 1. GOOGLE SHEETS CONFIGURATION (ROBUST)
 # ==========================================
-# REPLACE THIS WITH YOUR SHEET ID
 SHEET_ID = "120wdQHfL9mZB7OnYyHg-9o2Px-6cZogctcuNEHjhD9Q"
 
 @st.cache_resource
@@ -48,65 +47,67 @@ def get_sheet_client():
     if os.path.exists("key.json"):
         creds = Credentials.from_service_account_file("key.json", scopes=scope)
     else:
-        st.error("⚠️ key.json not found. Please add your Google Cloud key.")
         return None
     
-    # --- NETWORK FIX: RETRY LOGIC ---
-    # Tries to connect 3 times before failing
+    # Retry logic for bad internet
     for attempt in range(3):
         try:
             client = gspread.authorize(creds)
-            # Test connection by opening sheet
             return client.open_by_key(SHEET_ID)
-        except Exception as e:
-            if attempt < 2:
-                time.sleep(2) # Wait 2 seconds and try again
-                continue
-            else:
-                st.error(f"⚠️ Connection Failed after 3 tries. Check Internet/VPN. Error: {e}")
-                return None
+        except Exception:
+            time.sleep(1)
+    return None
 
-# --- DATA LOADING (Google Sheets Version) ---
 def load_data():
-    """Loads Patients from 'Patients' tab."""
+    """Loads Patients safely. Returns empty structure if offline."""
+    standard_cols = ["Patient ID", "Name", "Age", "Gender", "Contact", "Last Visit", "Next Appointment", "Treatment Notes", "Medical History", "Treatments Done", "Affected Teeth", "Pending Amount"]
+    
     sh = get_sheet_client()
-    if not sh: return pd.DataFrame()
+    
+    # Return empty if connection fails
+    if not sh: 
+        return pd.DataFrame(columns=standard_cols)
+    
     try:
         ws = sh.worksheet("Patients")
         data = ws.get_all_records()
         df = pd.DataFrame(data)
+        
         # Ensure columns exist
-        cols = ["Patient ID", "Name", "Age", "Gender", "Contact", "Last Visit", "Next Appointment", "Treatment Notes", "Medical History", "Treatments Done", "Affected Teeth", "Pending Amount"]
-        for c in cols:
+        for c in standard_cols:
             if c not in df.columns: df[c] = ""
+            
         # Fix numeric types
         df["Pending Amount"] = pd.to_numeric(df["Pending Amount"], errors='coerce').fillna(0)
         return df
     except gspread.WorksheetNotFound:
-        # Create if missing
         ws = sh.add_worksheet(title="Patients", rows=100, cols=20)
-        ws.append_row(["Patient ID", "Name", "Age", "Gender", "Contact", "Last Visit", "Next Appointment", "Treatment Notes", "Medical History", "Treatments Done", "Affected Teeth", "Pending Amount"])
-        return pd.DataFrame(columns=["Patient ID", "Name", "Age", "Gender", "Contact", "Last Visit", "Next Appointment", "Treatment Notes", "Medical History", "Treatments Done", "Affected Teeth", "Pending Amount"])
+        ws.append_row(standard_cols)
+        return pd.DataFrame(columns=standard_cols)
+    except Exception:
+        return pd.DataFrame(columns=standard_cols)
 
 def load_billing():
-    """Loads Finances from 'Finances' tab."""
+    """Loads Finances safely."""
+    standard_cols = ["Date", "Patient Name", "Treatments", "Total Amount", "Paid Amount", "Balance Due"]
     sh = get_sheet_client()
-    if not sh: return pd.DataFrame()
+    if not sh: return pd.DataFrame(columns=standard_cols)
+    
     try:
         ws = sh.worksheet("Finances")
         data = ws.get_all_records()
         df = pd.DataFrame(data)
-        cols = ["Date", "Patient Name", "Treatments", "Total Amount", "Paid Amount", "Balance Due"]
-        for c in cols:
+        for c in standard_cols:
             if c not in df.columns: df[c] = ""
         return df
     except gspread.WorksheetNotFound:
         ws = sh.add_worksheet(title="Finances", rows=100, cols=20)
-        ws.append_row(["Date", "Patient Name", "Treatments", "Total Amount", "Paid Amount", "Balance Due"])
-        return pd.DataFrame(columns=["Date", "Patient Name", "Treatments", "Total Amount", "Paid Amount", "Balance Due"])
+        ws.append_row(standard_cols)
+        return pd.DataFrame(columns=standard_cols)
+    except Exception:
+        return pd.DataFrame(columns=standard_cols)
 
 def save_data(df):
-    """Saves Patients to Google Sheet."""
     sh = get_sheet_client()
     if sh:
         try:
@@ -116,19 +117,9 @@ def save_data(df):
             ws.update([df.columns.values.tolist()] + df.values.tolist())
             st.cache_data.clear()
         except:
-            st.warning("⚠️ Save failed (Network Issue). Retrying...")
-            time.sleep(2)
-            try:
-                ws = sh.worksheet("Patients")
-                ws.clear()
-                df = df.astype(str)
-                ws.update([df.columns.values.tolist()] + df.values.tolist())
-                st.cache_data.clear()
-            except:
-                st.error("❌ Save Failed completely. Check Internet.")
+            st.error("⚠️ Save Failed. Check Internet.")
 
 def save_billing(df):
-    """Saves Finances to Google Sheet."""
     sh = get_sheet_client()
     if sh:
         try:
@@ -137,38 +128,24 @@ def save_billing(df):
             df = df.astype(str)
             ws.update([df.columns.values.tolist()] + df.values.tolist())
             st.cache_data.clear()
-        except:
-            pass # Silent fail on billing backup
+        except: pass
 
 # ==========================================
-# 2. APP CONFIGURATION
+# 2. CONFIG & CONSTANTS
 # ==========================================
-FILE_NAME = "sudantam_patients.csv" # Kept for reference, but unused
-BILLING_FILE = "sudantam_finances.csv" # Kept for reference, but unused
 LOGO_FILENAME = "logo.jpeg"
 DIAGRAM_FILENAME = "tooth_diagram.png"
 PRESCRIPTION_FOLDER = "Prescriptions"
 
-# --- THEME COLORS ---
 PRIMARY_COLOR = "#2C7A6F"  
 SECONDARY_COLOR = "#F0F8F5" 
-TEXT_COLOR = "#1B5E55"
 
-# --- STANDARD DATA LISTS ---
 TREATMENT_PRICES = {
-    "Consultation": 200, 
-    "X-Ray (IOPA)": 150, 
-    "Scaling & Polishing": 800, 
-    "Extraction": 500, 
-    "Restoration (Composite/GIC)": 1000, 
-    "Root Canal (RCT)": 3500, 
-    "Crown (Metal)": 2000, 
-    "Crown (Ceramic)": 4000, 
-    "Implant": 15000, 
-    "Orthodontics (Braces)": 25000, 
-    "Bleaching (Whitening)": 5000,
-    "Complete Denture": 12000,
-    "RPD (Partial Denture)": 3000
+    "Consultation": 200, "X-Ray (IOPA)": 150, "Scaling & Polishing": 800, 
+    "Extraction": 500, "Restoration (Composite/GIC)": 1000, "Root Canal (RCT)": 3500, 
+    "Crown (Metal)": 2000, "Crown (Ceramic)": 4000, "Implant": 15000, 
+    "Orthodontics (Braces)": 25000, "Bleaching (Whitening)": 5000,
+    "Complete Denture": 12000, "RPD (Partial Denture)": 3000
 }
 
 MED_HISTORY_OPTIONS = ["Diabetes", "Hypertension", "Thyroid", "Cardiac History", "Allergy", "Pregnancy", "Currently on medication"]
@@ -199,14 +176,12 @@ COMMON_INSTRUCTIONS = [
 ]
 
 def get_local_ip():
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         s.connect(('8.8.8.8', 80))
         IP = s.getsockname()[0]
-    except Exception:
-        IP = "127.0.0.1"
-    finally:
         s.close()
+    except: IP = "127.0.0.1"
     return IP
 
 class PDF(FPDF):
@@ -277,7 +252,7 @@ def generate_vcf(dataframe):
         vcf_content += f"BEGIN:VCARD\nVERSION:3.0\nFN:pt {name}\nTEL;TYPE=CELL:{phone}\nEND:VCARD\n"
     return vcf_content
 
-# --- App Interface & Styling ---
+# --- APP START ---
 st.set_page_config(page_title="Sudantam Dental Clinic", layout="wide")
 
 st.markdown(f"""
@@ -293,31 +268,23 @@ st.markdown(f"""
     [data-testid="stSidebar"] div[role="radiogroup"] label[data-checked="true"] {{
         background-color: {PRIMARY_COLOR} !important; color: white !important;
     }}
-    [data-testid="stSidebar"] div[role="radiogroup"] label > div:first-child {{ display: none; }}
     div.stButton > button {{
         width: 100%; background-color: {PRIMARY_COLOR}; color: white; height: 50px;
         font-size: 18px !important; border-radius: 8px; border: none; transition: 0.3s;
     }}
-    div.stButton > button:hover {{ background-color: #1B5E55; box-shadow: 0 5px 10px rgba(0,0,0,0.2); }}
-    @keyframes pulse-red {{
-        0% {{ box-shadow: 0 0 0 0 rgba(255, 0, 0, 0.7); }}
-        70% {{ box-shadow: 0 0 0 15px rgba(255, 0, 0, 0); }}
-        100% {{ box-shadow: 0 0 0 0 rgba(255, 0, 0, 0); }}
-    }}
+    div.stButton > button:hover {{ background-color: #1B5E55; }}
     .urgent-alert {{
-        animation: pulse-red 2s infinite; background-color: #ffe6e6; border: 2px solid #ff4d4d;
-        color: #cc0000; padding: 15px; border-radius: 10px; font-weight: bold; text-align: center; margin-bottom: 20px;
+        background-color: #ffe6e6; border: 2px solid #ff4d4d; color: #cc0000; padding: 15px; border-radius: 10px; font-weight: bold; text-align: center; margin-bottom: 20px;
     }}
 </style>
 """, unsafe_allow_html=True)
 
-# LOAD DATA FROM GOOGLE SHEETS
 df = load_data()
 billing_df = load_billing()
 
 if not os.path.exists(PRESCRIPTION_FOLDER): os.makedirs(PRESCRIPTION_FOLDER)
 
-# --- SIDEBAR MENU ---
+# --- SIDEBAR ---
 with st.sidebar:
     if os.path.exists(LOGO_FILENAME): st.image(Image.open(LOGO_FILENAME), use_container_width=True)
     else: st.title("🦷 Sudantam")
@@ -327,34 +294,32 @@ with st.sidebar:
     choice = st.radio("Main Menu", menu_options, label_visibility="collapsed")
     st.markdown("---")
     
-    st.markdown(f"<h4 style='color:{PRIMARY_COLOR}'>📱 Mobile App Link</h4>", unsafe_allow_html=True)
+    # QR Code
     pc_ip = get_local_ip()
     mobile_url = f"http://{pc_ip}:8501"
     qr_url = f"https://api.qrserver.com/v1/create-qr-code/?size=150x150&data={mobile_url}"
-    st.image(qr_url, caption="Scan with Phone to Open App", width=150)
-    st.caption("1. Phone must be on same Wi-Fi.\n2. Scan QR.\n3. Tap 'Add to Home Screen'.")
+    st.image(qr_url, caption="Scan for Mobile App", width=150)
     st.markdown("---")
 
+    # ALERTS (CRASH PROOF)
     st.markdown(f"<h4 style='color:{PRIMARY_COLOR}'>🔔 Alerts</h4>", unsafe_allow_html=True)
     today_str = datetime.date.today().strftime("%d-%m-%Y")
     
-    # Ensure correct data type for comparison
-    df["Next Appointment"] = df["Next Appointment"].astype(str)
-    
-    apps_today = df[df["Next Appointment"] == today_str]
-    if not apps_today.empty:
-        st.markdown(f'<div class="urgent-alert">📞 {len(apps_today)} Appointments Today!</div>', unsafe_allow_html=True)
-        with st.expander("View List"): st.dataframe(apps_today[["Name", "Contact"]], hide_index=True)
-    else: st.success("✅ No appointments")
+    if not df.empty and "Next Appointment" in df.columns:
+        df["Next Appointment"] = df["Next Appointment"].astype(str)
+        apps_today = df[df["Next Appointment"] == today_str]
+        if not apps_today.empty:
+            st.markdown(f'<div class="urgent-alert">📞 {len(apps_today)} Appointments Today!</div>', unsafe_allow_html=True)
+            with st.expander("View List"): st.dataframe(apps_today[["Name", "Contact"]], hide_index=True)
+        else: st.success("✅ No appointments")
 
-    pending_money = df[df["Pending Amount"] > 0]
-    if not pending_money.empty:
-        total_due = pending_money["Pending Amount"].sum()
-        st.warning(f"💰 Due: ₹{total_due}")
-        with st.expander("View Defaulters"): st.dataframe(pending_money[["Name", "Pending Amount"]], hide_index=True)
-    else: st.success("✅ No pending dues")
-    st.markdown("---")
-    st.caption("Dr. Sugam | Sudantam Clinic")
+        pending_money = df[df["Pending Amount"] > 0]
+        if not pending_money.empty:
+            total_due = pending_money["Pending Amount"].sum()
+            st.warning(f"💰 Due: ₹{total_due}")
+        else: st.success("✅ No pending dues")
+    else:
+        st.warning("⚠️ Database Offline (Check Key)")
 
 # --- MAIN CONTENT ---
 if choice == "➕  Add New Patient":
@@ -406,24 +371,23 @@ if choice == "➕  Add New Patient":
 
 elif choice == "💊  Actions (Rx & Bill)":
     st.header("📝 Visit Record (Rx & Invoice)")
-    names_sorted = sorted(df["Name"].tolist())
+    names_sorted = sorted(df["Name"].tolist()) if not df.empty else []
     patient = st.selectbox("Select Patient", [""] + names_sorted)
-    if patient:
+    
+    if patient and not df.empty:
         p_data = df[df["Name"] == patient].iloc[0]
         
-        # --- NEW FEATURE: HISTORY VIEWER ---
+        # --- HISTORY VIEWER ---
         st.info(f"📜 **{patient}'s Medical History**")
         with st.expander("View Complete Visit Log", expanded=True):
             history_text = str(p_data.get("Treatment Notes", "No previous notes."))
             st.text_area("Past Notes & Treatments", value=history_text, height=150, disabled=True)
-            
-            prev_med_hist = str(p_data.get("Medical History", ""))
-            if prev_med_hist:
-                st.write(f"**Medical History:** {prev_med_hist}")
+            prev_med = str(p_data.get("Medical History", ""))
+            if prev_med: st.write(f"**Medical History:** {prev_med}")
 
         st.markdown("---")
 
-        # --- SECTION 1: PRESCRIPTION ---
+        # --- PRESCRIPTION ---
         st.markdown("### 1. New Visit Entry (Rx)")
         col_diag, col_adv = st.columns(2)
         with col_diag: selected_diag = st.multiselect("Diagnosis / Findings:", COMMON_DIAGNOSES)
@@ -449,18 +413,13 @@ elif choice == "💊  Actions (Rx & Bill)":
 
         st.markdown("---")
         
-        # --- SECTION 2: SMART INVOICE (Auto-Fill) ---
+        # --- INVOICE ---
         st.markdown("### 2. Invoice Details")
         current_pending = float(p_data.get("Pending Amount", 0))
         if current_pending > 0: st.markdown(f'<div class="urgent-alert">⚠️ Patient has pending dues: ₹ {current_pending}</div><br>', unsafe_allow_html=True)
         
         valid_auto_select = [t for t in selected_advice_treat if t in TREATMENT_PRICES]
-        
-        sel_treats = st.multiselect(
-            "Treatments Performed (Auto-Filled from Advice):", 
-            options=list(TREATMENT_PRICES.keys()), 
-            default=valid_auto_select
-        )
+        sel_treats = st.multiselect("Treatments Performed:", options=list(TREATMENT_PRICES.keys()), default=valid_auto_select)
         
         invoice_lines = []
         bill_total = 0
@@ -486,261 +445,117 @@ elif choice == "💊  Actions (Rx & Bill)":
             final_balance = current_pending
 
         st.markdown("---")
-        col_pdf, col_wa = st.columns([1, 1])
-        today_date_str = datetime.date.today().strftime("%d-%m-%Y")
-        pdf_filename = f"{patient}_{int(p_data['Age'])}_{today_date_str}.pdf"
-        pdf_path = os.path.join(PRESCRIPTION_FOLDER, pdf_filename)
         
-        with col_pdf:
-            if st.button("🖨️ Generate PDF & Save"):
-                # --- HISTORY APPEND LOGIC ---
-                new_entry = f"\n\n--- VISIT: {today_date_str} ---\n"
-                if selected_diag: new_entry += f"Diagnosis: {', '.join(selected_diag)}\n"
-                if sel_treats: new_entry += f"Tx Done: {', '.join(sel_treats)}\n"
-                if meds: new_entry += f"Meds: {', '.join(meds)}\n"
-                if custom_notes: new_entry += f"Note: {custom_notes}"
-                
-                old_notes = str(p_data.get("Treatment Notes", ""))
-                updated_notes = old_notes + new_entry
-                
-                df.loc[df["Name"] == patient, "Treatment Notes"] = updated_notes
-                df.loc[df["Name"] == patient, "Next Appointment"] = final_next_visit_str
-                if sel_treats or amount_paid > 0: 
-                    df.loc[df["Name"] == patient, "Pending Amount"] = final_balance
-                save_data(df)
-                
-                if sel_treats:
-                    new_bill = pd.DataFrame([{ "Date": today_date_str, "Patient Name": patient, "Treatments": ", ".join([x[0] for x in invoice_lines]), "Total Amount": bill_total, "Paid Amount": amount_paid, "Balance Due": final_balance }])
-                    billing_df = pd.concat([billing_df, new_bill], ignore_index=True)
-                    save_billing(billing_df)
-                
-                pdf = PDF()
-                pdf.add_page()
-                pdf.set_font("Arial", 'B', 11)
-                pdf.cell(30, 8, "Patient Name:", 0, 0)
-                pdf.set_font("Arial", '', 11)
-                pdf.cell(70, 8, patient, 0, 0)
-                pdf.set_font("Arial", 'B', 11)
-                pdf.cell(20, 8, "Date:", 0, 0)
-                pdf.set_font("Arial", '', 11)
-                pdf.cell(40, 8, today_date_str, 0, 1)
-                pdf.set_font("Arial", 'B', 11)
-                pdf.cell(30, 8, "Age/Sex:", 0, 0)
-                pdf.set_font("Arial", '', 11)
-                pdf.cell(70, 8, f"{p_data['Age']} / {p_data['Gender']}", 0, 0)
-                pdf.set_font("Arial", 'B', 11)
-                pdf.set_text_color(27, 94, 85)
-                pdf.cell(35, 8, "Next Visit:", 0, 0)
-                pdf.set_font("Arial", '', 11)
-                pdf.set_text_color(0)
-                pdf.cell(40, 8, final_next_visit_str, 0, 1)
-                pdf.line(10, pdf.get_y()+2, 200, pdf.get_y()+2)
-                pdf.ln(6)
-                pdf.set_font("Arial", 'B', 12)
-                pdf.set_text_color(27, 94, 85)
-                pdf.cell(0, 8, "Diagnosis / Findings:", 0, 1)
-                pdf.set_font("Arial", '', 11)
-                pdf.set_text_color(0)
-                if selected_diag:
-                    for d in selected_diag: pdf.cell(10); pdf.cell(0, 6, f"- {d}", 0, 1)
-                if pd.notna(p_data["Medical History"]) and p_data["Medical History"]: pdf.cell(10); pdf.cell(0, 6, f"History: {p_data['Medical History']}", 0, 1)
-                pdf.ln(3)
-                if selected_advice_treat:
-                    pdf.set_font("Arial", 'B', 12)
-                    pdf.set_text_color(27, 94, 85)
-                    pdf.cell(0, 8, "Advised Treatment:", 0, 1)
-                    pdf.set_font("Arial", '', 11)
-                    pdf.set_text_color(0)
-                    for t in selected_advice_treat: pdf.cell(10); pdf.cell(0, 6, f"- {t}", 0, 1)
-                    pdf.ln(3)
-                pdf.set_font("Arial", 'B', 14)
-                pdf.set_text_color(27, 94, 85)
-                pdf.cell(0, 10, "Rx (Medicines):", 0, 1)
-                pdf.set_font("Arial", '', 11)
-                pdf.set_text_color(0)
+        if st.button("🖨️ Generate PDF & Save"):
+            # HISTORY APPEND
+            today_date_str = datetime.date.today().strftime("%d-%m-%Y")
+            new_entry = f"\n\n--- VISIT: {today_date_str} ---\n"
+            if selected_diag: new_entry += f"Diagnosis: {', '.join(selected_diag)}\n"
+            if sel_treats: new_entry += f"Tx Done: {', '.join(sel_treats)}\n"
+            if meds: new_entry += f"Meds: {', '.join(meds)}\n"
+            if custom_notes: new_entry += f"Note: {custom_notes}"
+            
+            old_notes = str(p_data.get("Treatment Notes", ""))
+            updated_notes = old_notes + new_entry
+            
+            df.loc[df["Name"] == patient, "Treatment Notes"] = updated_notes
+            df.loc[df["Name"] == patient, "Next Appointment"] = final_next_visit_str
+            if sel_treats or amount_paid > 0: 
+                df.loc[df["Name"] == patient, "Pending Amount"] = final_balance
+            save_data(df)
+            
+            # PDF Generation
+            pdf_filename = f"{patient}_{int(p_data['Age'])}_{today_date_str}.pdf"
+            pdf_path = os.path.join(PRESCRIPTION_FOLDER, pdf_filename)
+            pdf = PDF()
+            pdf.add_page()
+            pdf.set_font("Arial", 'B', 11)
+            pdf.cell(30, 8, "Patient Name:", 0, 0); pdf.set_font("Arial", '', 11); pdf.cell(70, 8, patient, 0, 0)
+            pdf.set_font("Arial", 'B', 11); pdf.cell(20, 8, "Date:", 0, 0); pdf.set_font("Arial", '', 11); pdf.cell(40, 8, today_date_str, 0, 1)
+            pdf.ln(5)
+            
+            if selected_diag:
+                pdf.set_font("Arial", 'B', 12); pdf.cell(0, 8, "Diagnosis:", 0, 1); pdf.set_font("Arial", '', 11)
+                for d in selected_diag: pdf.cell(10); pdf.cell(0, 6, f"- {d}", 0, 1)
+            
+            if meds:
+                pdf.ln(3); pdf.set_font("Arial", 'B', 14); pdf.cell(0, 10, "Rx (Medicines):", 0, 1); pdf.set_font("Arial", '', 11)
                 idx = 1
                 for m in meds: pdf.cell(10); pdf.cell(0, 7, f"{idx}. {m}", 0, 1); idx+=1
-                if custom_notes:
-                    for line in custom_notes.split('\n'): pdf.cell(10); pdf.cell(0, 7, f"{idx}. {line}", 0, 1); idx+=1
-                pdf.ln(5)
-                if inst:
-                    pdf.set_font("Arial", 'B', 11)
-                    pdf.set_text_color(27, 94, 85)
-                    pdf.cell(0, 8, "Advice:", 0, 1)
-                    pdf.set_font("Arial", '', 10)
-                    pdf.set_text_color(0)
-                    for i in inst: pdf.cell(10); pdf.cell(0, 6, f"- {i}", 0, 1)
-                if os.path.exists(DIAGRAM_FILENAME): pdf.image(DIAGRAM_FILENAME, x=20, y=200, w=170)
-                if sel_treats:
-                    pdf.add_page()
-                    pdf.set_font("Arial", 'B', 16)
-                    pdf.set_text_color(0)
-                    pdf.cell(0, 15, "INVOICE / RECEIPT", 0, 1, 'C')
-                    pdf.set_font("Arial", '', 12)
-                    pdf.cell(0, 10, f"Patient Name: {patient}", 0, 1)
-                    pdf.cell(0, 10, f"Date: {today_date_str}", 0, 1)
-                    pdf.line(10, 45, 200, 45)
-                    pdf.ln(10)
-                    pdf.set_fill_color(240, 248, 245)
-                    pdf.set_font("Arial", 'B', 12)
-                    pdf.cell(140, 10, "Description", 1, 0, 'L', 1)
-                    pdf.cell(50, 10, "Amount (INR)", 1, 1, 'R', 1)
-                    pdf.set_font("Arial", '', 12)
-                    for t, p in invoice_lines:
-                        pdf.cell(140, 10, f" {t}", 1, 0)
-                        pdf.cell(50, 10, f"{p} ", 1, 1, 'R')
-                    pdf.ln(5)
-                    pdf.set_font("Arial", 'B', 12)
-                    pdf.cell(140, 10, "Total Amount", 1, 0)
-                    pdf.cell(50, 10, f"{bill_total}", 1, 1, 'R')
-                    pdf.cell(140, 10, "Paid Today", 1, 0)
-                    pdf.cell(50, 10, f"{amount_paid}", 1, 1, 'R')
-                    if final_balance > 0:
-                        pdf.set_text_color(200, 0, 0)
-                        pdf.cell(140, 10, "Balance Due", 1, 0)
-                        pdf.cell(50, 10, f"{final_balance}", 1, 1, 'R')
-                pdf.output(pdf_path)
-                try:
-                    subprocess.Popen(f'explorer /select,"{os.path.abspath(pdf_path)}"')
-                    st.success(f"Saved: {pdf_filename}")
-                except: st.success("Saved! Check Prescriptions folder.")
-
-        with col_wa:
-            st.markdown("### 📲 Send")
-            raw_phone = str(p_data['Contact']).replace(" ", "").replace("-", "")
-            if not raw_phone.startswith("+"): raw_phone = "+91" + raw_phone 
-            if sel_treats and final_balance > 0: msg = f"Hello {patient}, pending amount is Rs. {final_balance}. Please pay at next visit."
-            else: msg = f"Hello {patient}, here is your digital record. - Sudantam Clinic"
-            encoded_msg = urllib.parse.quote(msg)
-            wa_link = f"https://web.whatsapp.com/send?phone={raw_phone}&text={encoded_msg}"
-            st.markdown(f'''<a href="{wa_link}" target="_blank"><button style="background-color:#25D366; color:white; border:none; padding:12px; border-radius:5px; font-weight:bold; cursor:pointer; width:100%;">1. Open WhatsApp</button></a><p style="font-size:12px; margin-top:5px;">2. Drag the highlighted file from the opened folder.</p>''', unsafe_allow_html=True)
+            
+            if sel_treats:
+                pdf.add_page(); pdf.set_font("Arial", 'B', 16); pdf.cell(0, 15, "INVOICE", 0, 1, 'C')
+                pdf.set_font("Arial", '', 12)
+                for t, p in invoice_lines: pdf.cell(140, 10, f" {t}", 1, 0); pdf.cell(50, 10, f"{p} ", 1, 1, 'R')
+                pdf.ln(5); pdf.set_font("Arial", 'B', 12)
+                pdf.cell(140, 10, "Total", 1, 0); pdf.cell(50, 10, f"{bill_total}", 1, 1, 'R')
+                pdf.cell(140, 10, "Paid", 1, 0); pdf.cell(50, 10, f"{amount_paid}", 1, 1, 'R')
+            
+            pdf.output(pdf_path)
+            st.success(f"Saved: {pdf_filename}")
 
 elif choice == "📢  Marketing / WhatsApp":
     st.header("📢 Clinic Marketing & Mass Messaging")
-    st.info("Download your contact list, save it to your phone, and perform a WhatsApp Broadcast.")
-    filter_option = st.selectbox("Select Audience:", ["All Patients", "Defaulters (Pending Dues)", "Patients with Scheduled Next Visit"])
+    filter_option = st.selectbox("Select Audience:", ["All Patients", "Defaulters", "Patients with Scheduled Next Visit"])
     filtered_df = df.copy()
-    if filter_option == "Defaulters (Pending Dues)": filtered_df = df[df["Pending Amount"] > 0]
-    elif filter_option == "Patients with Scheduled Next Visit": filtered_df = df[df["Next Appointment"] != "Not Required"]
-    if filtered_df.empty: st.warning("No patients match this filter.")
-    else:
+    if not df.empty:
+        if filter_option == "Defaulters": filtered_df = df[df["Pending Amount"] > 0]
+        elif filter_option == "Patients with Scheduled Next Visit": filtered_df = df[df["Next Appointment"] != "Not Required"]
+        
         st.write(f"Found **{len(filtered_df)}** patients.")
-        vcf_data = generate_vcf(filtered_df)
-        st.download_button(label="📂 Download Phone Contacts (VCF)", data=vcf_data, file_name="Sudantam_Patients.vcf", mime="text/vcard")
-        st.info("💡 **Instructions:** \n1. Download this file.\n2. Send it to your phone.\n3. Open it and tap 'Save All'.\n4. Search for **'pt '** in WhatsApp to verify they are saved.\n5. Create a Broadcast List and select all 'pt ...' contacts.")
-        st.markdown("---")
-        st.subheader("Or Send Manually (One by One)")
-        default_msg = "Hello! Special offer at Sudantam Dental Clinic: 50% OFF on Scaling this week. Book now!"
-        custom_msg = st.text_area("Message Content:", value=default_msg)
-        for index, row in filtered_df.iterrows():
-            c1, c2, c3 = st.columns([2, 2, 1])
-            with c1: st.write(f"**{row['Name']}**")
-            with c2: st.write(f"📞 {row['Contact']}")
-            with c3:
-                raw_phone = str(row['Contact']).replace(" ", "").replace("-", "")
-                if not raw_phone.startswith("+"): raw_phone = "+91" + raw_phone
-                final_msg = f"Hello {row['Name']}, {custom_msg}"
-                encoded_msg = urllib.parse.quote(final_msg)
-                link = f"https://web.whatsapp.com/send?phone={raw_phone}&text={encoded_msg}"
-                st.markdown(f'''<a href="{link}" target="_blank"><button style="background-color:#25D366; color:white; border:none; padding:5px 10px; border-radius:5px; cursor:pointer;">Send 📤</button></a>''', unsafe_allow_html=True)
+        if not filtered_df.empty:
+            vcf_data = generate_vcf(filtered_df)
+            st.download_button(label="📂 Download VCF", data=vcf_data, file_name="Sudantam_Patients.vcf")
+    else: st.warning("Database Empty.")
 
 elif choice == "💰  Manage Defaulters":
     st.header("💰 Manage Pending Dues")
-    defaulters_df = df[df["Pending Amount"] > 0]
-    if defaulters_df.empty: st.success("🎉 No pending dues! Everyone is paid up.")
-    else:
+    if not df.empty:
+        defaulters_df = df[df["Pending Amount"] > 0]
         st.dataframe(defaulters_df[["Name", "Contact", "Pending Amount"]], use_container_width=True)
-        st.markdown("---")
-        target_person = st.selectbox("Select Patient to Update", defaulters_df["Name"].tolist())
+        
+        target_person = st.selectbox("Select Patient to Update", [""] + defaulters_df["Name"].tolist())
         if target_person:
             idx = df.index[df["Name"] == target_person].tolist()[0]
             current_due = df.at[idx, "Pending Amount"]
-            st.info(f"**{target_person}** currently owes **₹ {current_due}**")
-            c1, c2 = st.columns(2)
-            with c1:
-                st.subheader("Edit Amount")
-                new_val = st.number_input("New Pending Amount", value=int(current_due), step=100)
-                if st.button("💾 Update Dues"):
-                    df.at[idx, "Pending Amount"] = new_val
-                    save_data(df)
-                    st.success("Updated! Refreshing...")
-                    st.rerun()
-            with c2:
-                st.subheader("Clear Entry")
-                st.write("Remove from defaulters list?")
-                if st.button("✅ Mark Paid (Clear 0)"):
-                    df.at[idx, "Pending Amount"] = 0
-                    save_data(df)
-                    st.success("Cleared! Patient removed from defaulters.")
-                    st.rerun()
+            st.info(f"Owes: ₹ {current_due}")
+            
+            if st.button("✅ Mark Paid (Clear 0)"):
+                df.at[idx, "Pending Amount"] = 0
+                save_data(df)
+                st.success("Cleared!")
+                st.rerun()
 
 elif choice == "🔧  Manage Data":
     st.header("🔧 Manage Patient Data")
-    names_sorted = sorted(df["Name"].tolist())
-    patient_to_edit = st.selectbox("Select Patient to Edit/Delete", [""] + names_sorted)
-    if patient_to_edit:
-        idx = df.index[df["Name"] == patient_to_edit].tolist()[0]
-        p_data = df.iloc[idx]
-        st.info(f"Editing: {patient_to_edit}")
-        
-        with st.expander("✏️ Edit Details", expanded=True):
-            # Form block
-            with st.form("edit_form"):
-                c1, c2 = st.columns(2)
-                new_name = c1.text_input("Name", value=p_data["Name"])
-                new_age = c1.number_input("Age", value=int(p_data["Age"]))
-                
-                # Handle Gender Index Safely
-                g_opts = ["Male", "Female", "Other"]
-                try: g_idx = g_opts.index(p_data["Gender"])
-                except: g_idx = 0
-                new_gender = c2.selectbox("Gender", g_opts, index=g_idx)
-                
-                new_contact = c2.text_input("Contact", value=str(p_data["Contact"]))
-                new_pending = st.number_input("Pending Amount Adjustment (₹)", value=int(p_data.get("Pending Amount", 0)))
-                
-                st.write("---")
-                
-                # Logic for Next Appointment Date
-                existing_app_str = str(p_data.get("Next Appointment", "Not Required"))
-                is_scheduled = (existing_app_str != "Not Required" and existing_app_str != "nan")
-                schedule_edit = st.checkbox("Scheduled Next Visit?", value=is_scheduled)
-                
-                if schedule_edit:
-                    try: def_date = pd.to_datetime(existing_app_str, format="%d-%m-%Y").date()
-                    except: def_date = datetime.date.today() + datetime.timedelta(days=7)
-                    new_app_date = st.date_input("Next Visit", value=def_date, format="DD-MM-YYYY")
-                    final_edit_app_str = new_app_date.strftime("%d-%m-%Y")
-                else: 
-                    final_edit_app_str = "Not Required"
-
-                submitted = st.form_submit_button("💾 Update Info")
-
-                if submitted:
-                    df.at[idx, "Name"] = new_name
-                    df.at[idx, "Age"] = new_age
-                    df.at[idx, "Gender"] = new_gender
-                    df.at[idx, "Contact"] = new_contact
-                    df.at[idx, "Pending Amount"] = new_pending
-                    df.at[idx, "Next Appointment"] = final_edit_app_str
-                    save_data(df)
-                    st.success("Updated Successfully!")
-                    st.rerun()
-
-        with st.expander("❌ Delete Patient (Danger Zone)"):
-            if st.button(f"🗑️ Delete {patient_to_edit}"):
-                df = df.drop(idx)
-                save_data(df)
-                st.success("Deleted.")
-                st.rerun()
+    if not df.empty:
+        names_sorted = sorted(df["Name"].tolist())
+        patient_to_edit = st.selectbox("Select Patient to Edit/Delete", [""] + names_sorted)
+        if patient_to_edit:
+            idx = df.index[df["Name"] == patient_to_edit].tolist()[0]
+            p_data = df.iloc[idx]
+            
+            with st.expander("✏️ Edit Details", expanded=True):
+                with st.form("edit_form"):
+                    new_name = st.text_input("Name", value=p_data["Name"])
+                    new_contact = st.text_input("Contact", value=str(p_data["Contact"]))
+                    if st.form_submit_button("💾 Update Info"):
+                        df.at[idx, "Name"] = new_name
+                        df.at[idx, "Contact"] = new_contact
+                        save_data(df)
+                        st.success("Updated!")
+                        st.rerun()
 
 elif choice == "🔍  Search Registry":
     st.header("🔍 Registry")
     q = st.text_input("Search Name")
-    if q: st.dataframe(df[df["Name"].str.contains(q, case=False, na=False)], use_container_width=True)
-    else: st.dataframe(df, use_container_width=True)
+    if not df.empty and q: 
+        st.dataframe(df[df["Name"].str.contains(q, case=False, na=False)], use_container_width=True)
+    elif not df.empty:
+        st.dataframe(df, use_container_width=True)
 
 elif choice == "🗓️  Today's Queue":
     st.header("Today's Queue")
-    today_str = datetime.date.today().strftime("%d-%m-%Y")
-    st.table(df[df["Last Visit"] == today_str][["Name", "Contact", "Treatments Done"]])
+    if not df.empty:
+        today_str = datetime.date.today().strftime("%d-%m-%Y")
+        st.table(df[df["Last Visit"] == today_str][["Name", "Contact", "Treatments Done"]])
