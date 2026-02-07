@@ -84,8 +84,12 @@ if 'pdf_ready' not in st.session_state: st.session_state.pdf_ready = None
 
 def load_data():
     if os.path.exists(LOCAL_DB_FILE):
-        return pd.read_csv(LOCAL_DB_FILE).astype(str)
-    return pd.DataFrame(columns=["Name", "Age", "Gender", "Contact", "Pending Amount", "Visit Log"])
+        df = pd.read_csv(LOCAL_DB_FILE).astype(str)
+        # Ensure 'Last Visit' column exists for sorting
+        if "Last Visit" not in df.columns:
+            df["Last Visit"] = "2024-01-01"
+        return df
+    return pd.DataFrame(columns=["Name", "Age", "Gender", "Contact", "Pending Amount", "Visit Log", "Medical History", "Last Visit"])
 
 df = load_data()
 
@@ -110,7 +114,17 @@ with tabs[0]:
         
         if st.form_submit_button("✅ REGISTER PATIENT"):
             if name and age > 0:
-                new_row = {"Name": name, "Age": age, "Gender": gender, "Contact": phone, "Pending Amount": 0, "Visit Log": ""}
+                today_str = datetime.date.today().strftime("%Y-%m-%d")
+                new_row = {
+                    "Name": name, 
+                    "Age": age, 
+                    "Gender": gender, 
+                    "Contact": phone, 
+                    "Pending Amount": 0, 
+                    "Visit Log": "", 
+                    "Medical History": ", ".join(mh),
+                    "Last Visit": today_str
+                }
                 df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
                 df.to_csv(LOCAL_DB_FILE, index=False)
                 st.success(f"Registered: {name}")
@@ -130,7 +144,7 @@ with tabs[1]:
         row = df.iloc[idx]
         
         st.info("🦷 FDI Tooth Selection")
-        # No image tag inside code block here.
+        # Ensure image tag is outside code block
         
         c1, c2 = st.columns(2)
         ur = c1.multiselect("UR (11-18)", [str(x) for x in range(11, 19)][::-1])
@@ -175,56 +189,51 @@ with tabs[1]:
                 fdi = ", ".join(ur + ul + lr + ll)
                 rx_str = " | ".join([f"{m['Medicine']} ({m['Dosage']} x {m['Duration']})" for m in st.session_state.temp_rx])
                 
-                # Logic: Current Due vs Total Due
+                # Update Financials & Date
                 old_balance = float(row['Pending Amount']) if row['Pending Amount'] else 0
                 current_due = bill - paid
                 total_outstanding = old_balance + current_due
+                today_str = datetime.date.today().strftime("%Y-%m-%d")
                 
-                log = f"\n📅 {datetime.date.today()}\nTx: {tx_done} (Teeth: {fdi})\nNotes: {notes}\nRx: {rx_str}\nPaid: {paid}"
+                log = f"\n📅 {today_str}\nTx: {tx_done} (Teeth: {fdi})\nNotes: {notes}\nRx: {rx_str}\nPaid: {paid}"
                 df.at[idx, "Visit Log"] = str(row['Visit Log']) + log
                 df.at[idx, "Pending Amount"] = total_outstanding
+                df.at[idx, "Last Visit"] = today_str # Update sorting date
                 df.to_csv(LOCAL_DB_FILE, index=False)
                 
-                # PDF Generation (Clean & Separated)
+                # PDF Generation
                 pdf = SudantamPDF()
                 pdf.add_page()
                 pdf.set_font('Arial', 'B', 12)
                 
-                # Patient Info
                 pdf.cell(0, 10, clean_text(f"Patient: {row['Name']} ({row['Age']}/{row['Gender']})"), 0, 1)
-                pdf.cell(0, 10, clean_text(f"Date: {datetime.date.today()}"), 0, 1)
+                pdf.cell(0, 10, clean_text(f"Date: {today_str}"), 0, 1)
                 pdf.ln(5)
                 
-                # Clinical Details
                 pdf.set_font('Arial', 'B', 12); pdf.cell(0, 10, "Clinical Details:", 0, 1)
                 pdf.set_font('Arial', '', 11)
                 pdf.multi_cell(0, 8, clean_text(f"Treatment: {tx_done}\nTeeth Affected: {fdi}\nNotes: {notes}"))
                 pdf.ln(5)
                 
-                # Prescription
                 if st.session_state.temp_rx:
                     pdf.set_font('Arial', 'B', 12); pdf.cell(0, 10, "Prescription:", 0, 1)
                     pdf.set_font('Arial', '', 11)
                     for m in st.session_state.temp_rx:
                         pdf.cell(0, 8, clean_text(f"- {m['Medicine']} ({m['Dosage']} for {m['Duration']})"), 0, 1)
                 
-                # Financials (Separated to avoid confusion)
                 pdf.ln(10)
                 pdf.set_font('Arial', 'B', 12); pdf.cell(0, 10, "Invoice Summary:", 0, 1)
                 pdf.set_font('Arial', '', 11)
-                
-                # 1. Today's Transaction
                 pdf.cell(100, 8, clean_text(f"Procedure Bill: Rs. {bill}"), 0, 1)
                 pdf.cell(100, 8, clean_text(f"Amount Paid:    Rs. {paid}"), 0, 1)
-                
-                # 2. Total Outstanding (Only show if there is a balance)
                 pdf.ln(2)
+                
                 if total_outstanding > 0:
                     pdf.set_font('Arial', 'B', 11)
                     pdf.cell(100, 8, clean_text(f"TOTAL PENDING DUE: Rs. {total_outstanding}"), 0, 1)
                 else:
                     pdf.set_font('Arial', 'B', 11)
-                    pdf.set_text_color(0, 128, 0) # Green text
+                    pdf.set_text_color(0, 128, 0)
                     pdf.cell(100, 8, "Balance Cleared: Rs. 0", 0, 1)
                 
                 pdf_name = f"Rx_{clean_text(row['Name']).replace(' ','_')}.pdf"
@@ -240,40 +249,93 @@ with tabs[1]:
                 st.session_state.pdf_ready = None
                 st.rerun()
 
-# --- TAB 3: RECORDS ---
+# --- TAB 3: RECORDS (SORT BY DATE ADDED) ---
 with tabs[2]:
-    st.markdown("### 📂 Patient Database")
-    search_q = st.text_input("🔍 Search Registry")
-    if search_q:
-        res = df[df["Name"].str.contains(search_q, case=False, na=False)]
-        for i, r in res.iterrows():
-            with st.expander(f"{r['Name']} (Age: {r['Age']})"):
-                st.write(f"📞 Contact: {r['Contact']}")
-                st.text_area("Visit History", r['Visit Log'], height=150)
-                
-                pdf_h = SudantamPDF()
-                pdf_h.add_page()
-                pdf_h.set_font('Arial', 'B', 12); pdf_h.cell(0, 10, clean_text(f"Full History: {r['Name']}"), 0, 1)
-                pdf_h.set_font('Arial', '', 10); pdf_h.multi_cell(0, 7, clean_text(str(r['Visit Log'])))
-                h_file = f"Record_{clean_text(r['Name']).replace(' ','_')}.pdf"
-                pdf_h.output(h_file)
-                with open(h_file, "rb") as f:
-                    st.download_button("📥 DOWNLOAD HISTORY PDF", f, file_name=h_file)
+    st.markdown("### 📂 Patient Database Manager")
+    
+    # 1. Sorting Options
+    sort_opt = st.radio("SORT LIST BY:", ["Date: Newest First", "Date: Oldest First", "Name (A-Z)", "Highest Dues"], horizontal=True)
+    
+    # Prepare sorting view
+    df_sort = df.copy()
+    df_sort["Pending Amount"] = pd.to_numeric(df_sort["Pending Amount"], errors='coerce').fillna(0)
+    df_sort["Last Visit"] = pd.to_datetime(df_sort["Last Visit"], errors='coerce').fillna(pd.Timestamp("2024-01-01"))
+    
+    if sort_opt == "Date: Newest First":
+        df_sort = df_sort.sort_values("Last Visit", ascending=False)
+    elif sort_opt == "Date: Oldest First":
+        df_sort = df_sort.sort_values("Last Visit", ascending=True)
+    elif sort_opt == "Name (A-Z)":
+        df_sort = df_sort.sort_values("Name")
+    elif sort_opt == "Highest Dues":
+        df_sort = df_sort.sort_values("Pending Amount", ascending=False)
 
-# --- TAB 4: DUES (WITH ONE-CLICK CLEAR) ---
+    # 2. Master Dropdown
+    patient_list = df_sort["Name"].tolist()
+    selected_name = st.selectbox("SELECT PATIENT TO VIEW / EDIT", [""] + patient_list)
+
+    if selected_name:
+        idx_list = df.index[df["Name"] == selected_name].tolist()
+        if idx_list:
+            real_idx = idx_list[0]
+            row = df.iloc[real_idx]
+            
+            # View Details
+            st.info(f"**Patient:** {row['Name']} | **Age:** {row['Age']} | **Last Visit:** {row['Last Visit']}")
+            st.warning(f"**Pending Dues:** Rs. {row['Pending Amount']}")
+            st.text_area("Full Clinical History", row['Visit Log'], height=150)
+            
+            # PDF Download
+            pdf_h = SudantamPDF()
+            pdf_h.add_page()
+            pdf_h.set_font('Arial', 'B', 12); pdf_h.cell(0, 10, clean_text(f"Full History: {row['Name']}"), 0, 1)
+            pdf_h.set_font('Arial', '', 10); pdf_h.multi_cell(0, 7, clean_text(str(row['Visit Log'])))
+            h_file = f"Record_{clean_text(row['Name']).replace(' ','_')}.pdf"
+            pdf_h.output(h_file)
+            with open(h_file, "rb") as f:
+                st.download_button("📥 DOWNLOAD HISTORY PDF", f, file_name=h_file)
+            
+            st.markdown("---")
+            
+            # Edit & Delete
+            c_edit, c_del = st.columns(2)
+            
+            with c_edit.expander("✏️ EDIT DETAILS"):
+                with st.form("edit_form"):
+                    new_name = st.text_input("Edit Name", row['Name'])
+                    new_contact = st.text_input("Edit Phone", row['Contact'])
+                    new_age = st.number_input("Edit Age", value=int(float(row['Age'])) if row['Age'] else 0)
+                    new_mh = st.text_input("Edit Med History", str(row.get('Medical History', '')))
+                    
+                    if st.form_submit_button("✅ SAVE CHANGES"):
+                        df.at[real_idx, "Name"] = new_name
+                        df.at[real_idx, "Contact"] = new_contact
+                        df.at[real_idx, "Age"] = new_age
+                        df.at[real_idx, "Medical History"] = new_mh
+                        df.to_csv(LOCAL_DB_FILE, index=False)
+                        st.success("Details Updated!")
+                        st.rerun()
+
+            with c_del.expander("🗑️ DELETE RECORD"):
+                st.error("⚠️ DANGER ZONE: This cannot be undone.")
+                if st.button("Permanently Delete Patient"):
+                    df = df.drop(real_idx)
+                    df.to_csv(LOCAL_DB_FILE, index=False)
+                    st.success("Patient Deleted Successfully.")
+                    st.rerun()
+
+# --- TAB 4: DUES ---
 with tabs[3]:
-    st.markdown("### 💰 Manage Dues")
+    st.markdown("### 💰 Payment Manager")
     df["Pending Amount"] = pd.to_numeric(df["Pending Amount"], errors='coerce').fillna(0)
     defaulters = df[df["Pending Amount"] > 0]
     
     if not defaulters.empty:
-        # Loop through defaulters
         for idx, row in defaulters.iterrows():
             with st.expander(f"🔴 {row['Name']} - Due: Rs. {row['Pending Amount']}"):
                 c1, c2 = st.columns([2, 1])
                 c1.write(f"Contact: {row['Contact']}")
                 
-                # --- ONE CLICK CLEAR BUTTON ---
                 if c2.button(f"✅ CLEAR FULL BALANCE (Rs. {row['Pending Amount']})", key=f"clear_{idx}"):
                     df.at[idx, "Pending Amount"] = 0
                     log_entry = f"\n📅 {datetime.date.today()} | Payment: Full Balance Cleared"
@@ -283,7 +345,6 @@ with tabs[3]:
                     st.rerun()
                     
                 st.markdown("---")
-                # PARTIAL PAYMENT LOGIC
                 with st.form(key=f"partial_{idx}"):
                     part_pay = st.number_input(f"Partial Amount", step=100, key=f"p_amt_{idx}")
                     if st.form_submit_button(f"Update Partial for {row['Name']}"):
