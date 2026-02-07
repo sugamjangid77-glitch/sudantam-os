@@ -89,7 +89,7 @@ df = load_data()
 if os.path.exists(LOGO_FILENAME):
     st.image(LOGO_FILENAME)
 
-tabs = st.tabs(["📝 REGISTRATION", "🦷 CLINICAL", "📂 RECORDS", "💰 DUES", "🔄 SYNC"])
+tabs = st.tabs(["📋 REGISTRATION", "🦷 CLINICAL", "📂 RECORDS", "💰 DUES", "🔄 SYNC"])
 
 # --- TAB 1: REGISTRATION ---
 with tabs[0]:
@@ -98,17 +98,24 @@ with tabs[0]:
         name = st.text_input("FULL NAME")
         phone = st.text_input("PHONE NUMBER")
         c1, c2 = st.columns(2)
-        with c1: age = st.number_input("AGE", min_value=1, step=1)
-        with c2: gender = st.selectbox("GENDER", ["", "Male", "Female", "Other"])
+        with c1: 
+            # Age defaults to 0 (displays as 0 but acts as blank placeholder)
+            age = st.number_input("AGE", min_value=0, step=1, value=0)
+        with c2: 
+            gender = st.selectbox("GENDER", ["", "Male", "Female", "Other"])
         mh = st.multiselect("MEDICAL HISTORY", ["None", "Diabetes", "BP", "Thyroid", "Asthma", "Allergy"])
         
         if st.form_submit_button("✅ REGISTER PATIENT"):
-            if name:
+            if name and age > 0:
                 new_row = {"Name": name, "Age": age, "Gender": gender, "Contact": phone, "Pending Amount": 0, "Visit Log": ""}
                 df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
                 df.to_csv(LOCAL_DB_FILE, index=False)
                 st.success(f"Registered: {name}")
                 st.rerun()
+            elif age == 0:
+                st.error("⚠️ Please enter a valid Age")
+            else:
+                st.error("⚠️ Name is required")
 
 # --- TAB 2: CLINICAL (COMPREHENSIVE) ---
 with tabs[1]:
@@ -148,10 +155,21 @@ with tabs[1]:
         with st.form("final_tx"):
             st.markdown("#### 🛠️ Comprehensive Treatment List")
             tx_done = st.selectbox("TREATMENT CATEGORY", [
-                "", "Consultation", "Scaling & Polishing", "Composite Filling", "Root Canal (RCT)",
-                "Simple Extraction", "Impacted Molar Extraction (Surgical)", "Orthodontics: Metal Braces",
-                "Orthodontics: Ceramic Braces", "Orthodontics: Invisible Braces (Invisalign)",
-                "Prosthetics: PFM Crown", "Prosthetics: Zirconia Crown", "Prosthetics: Bridge", "Implant", "Veneers"
+                "", 
+                "Consultation",
+                "Scaling & Polishing",
+                "Composite Filling",
+                "Root Canal (RCT)",
+                "Simple Extraction",
+                "Impacted Molar Extraction (Surgical)",
+                "Orthodontics: Metal Braces",
+                "Orthodontics: Ceramic Braces",
+                "Orthodontics: Invisible Braces (Invisalign)",
+                "Prosthetics: PFM Crown",
+                "Prosthetics: Zirconia Crown",
+                "Prosthetics: Bridge",
+                "Implant",
+                "Veneers"
             ])
             notes = st.text_area("CLINICAL NOTES / OBSERVATIONS")
             b1, b2 = st.columns(2)
@@ -226,7 +244,7 @@ with tabs[3]:
                 df.to_csv(LOCAL_DB_FILE, index=False)
                 st.rerun()
 
-# --- TAB 5: SYNC ---
+# --- TAB 5: SYNC (WITH ANIMATION) ---
 with tabs[4]:
     st.markdown("### 🔄 Data Synchronization")
     if st.button("🔄 PUSH TO CLOUD"):
