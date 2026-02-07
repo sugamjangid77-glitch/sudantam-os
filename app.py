@@ -41,14 +41,11 @@ SHEET_ID = "120wdQHfL9mZB7OnYyHg-9o2Px-6cZogctcuNEHjhD9Q"
 def get_sheet_client():
     scope = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
     creds = None
-    
-    # 1. Try Streamlit Secrets
     try:
         if "gcp_service_account" in st.secrets:
             creds = Credentials.from_service_account_info(st.secrets["gcp_service_account"], scopes=scope)
     except Exception: pass
 
-    # 2. Try Local File
     if not creds and os.path.exists("key.json"):
         creds = Credentials.from_service_account_file("key.json", scopes=scope)
     
@@ -243,7 +240,8 @@ def generate_wa_link(phone, message):
     phone = str(phone).replace(" ", "").replace("-", "")
     if not phone.startswith("+"): phone = "+91" + phone
     encoded_msg = urllib.parse.quote(message)
-    return f"https://wa.me/{phone}?text={encoded_msg}"
+    # USE WEB.WHATSAPP FOR DIRECT INTEGRATION
+    return f"https://web.whatsapp.com/send?phone={phone}&text={encoded_msg}"
 
 # --- APP START ---
 st.set_page_config(page_title="Sudantam Dental Clinic", layout="wide")
@@ -251,16 +249,6 @@ st.set_page_config(page_title="Sudantam Dental Clinic", layout="wide")
 st.markdown(f"""
 <style>
     [data-testid="stSidebar"] {{ background-color: {SECONDARY_COLOR}; }}
-    [data-testid="stSidebar"] div[role="radiogroup"] {{ display: flex; flex-direction: column; gap: 12px; }}
-    [data-testid="stSidebar"] div[role="radiogroup"] label {{
-        background-color: white !important; padding: 18px !important;
-        border-radius: 15px !important; box-shadow: 0 2px 5px rgba(0,0,0,0.05) !important;
-        border: 2px solid transparent !important; margin: 0 !important; width: 100% !important;
-        font-size: 18px !important; color: #444 !important;
-    }}
-    [data-testid="stSidebar"] div[role="radiogroup"] label[data-checked="true"] {{
-        background-color: {PRIMARY_COLOR} !important; color: white !important;
-    }}
     div.stButton > button {{
         width: 100%; background-color: {PRIMARY_COLOR}; color: white; height: 50px;
         font-size: 18px !important; border-radius: 8px; border: none; transition: 0.3s;
@@ -334,7 +322,6 @@ if choice == "➕  Add New Patient":
 elif choice == "💊  Actions (Rx & Bill)":
     st.header("📝 Visit Record (Rx & Invoice)")
     names_sorted = sorted(df["Name"].tolist()) if not df.empty else []
-    # SEARCH BAR IS HERE
     patient = st.selectbox("Select Patient (Search Name)", [""] + names_sorted)
     
     if patient and not df.empty:
@@ -363,7 +350,6 @@ elif choice == "💊  Actions (Rx & Bill)":
                 if pd.isna(parsed): default_date = datetime.date.today() + datetime.timedelta(days=7)
                 else: default_date = parsed.date()
             except: default_date = datetime.date.today() + datetime.timedelta(days=7)
-            
             if schedule_next: new_next_visit_date = st.date_input("Date:", value=default_date, format="DD-MM-YYYY"); final_next_visit_str = new_next_visit_date.strftime("%d-%m-%Y")
             else: final_next_visit_str = "Not Required"
         
@@ -389,10 +375,9 @@ elif choice == "💊  Actions (Rx & Bill)":
         else: amount_paid = 0; final_balance = current_pending
         
         st.markdown("---")
-        # NEW WHATSAPP INVOICE BUTTON
-        wa_invoice_msg = f"Hello {patient}, your dental visit is complete. Total Amount: {bill_total}. Paid: {amount_paid}. Balance: {final_balance}. - Sudantam Clinic"
+        wa_invoice_msg = f"Hello {patient}, your dental visit is complete. Total: {bill_total}. Paid: {amount_paid}. Balance: {final_balance}. - Sudantam Clinic"
         wa_invoice_link = generate_wa_link(p_data["Contact"], wa_invoice_msg)
-        st.markdown(f'''<a href="{wa_invoice_link}" target="_blank"><button style="background-color:#25D366; color:white; border:none; padding:10px; width:100%; border-radius:5px; font-weight:bold;">📲 Send Invoice via WhatsApp</button></a><br><br>''', unsafe_allow_html=True)
+        st.markdown(f'''<a href="{wa_invoice_link}" target="_blank"><button style="background-color:#25D366; color:white; border:none; padding:10px; width:100%; border-radius:5px; font-weight:bold;">📲 Open WhatsApp Web (Send Bill)</button></a>''', unsafe_allow_html=True)
 
         if st.button("🖨️ Generate PDF & Save"):
             today_date_str = datetime.date.today().strftime("%d-%m-%Y")
@@ -431,7 +416,6 @@ elif choice == "💊  Actions (Rx & Bill)":
 
 elif choice == "📢  Marketing / WhatsApp":
     st.header("📢 Clinic Marketing")
-    
     st.subheader("1. Bulk Actions")
     filter_option = st.selectbox("Select Audience:", ["All Patients", "Defaulters", "Patients with Scheduled Next Visit"])
     filtered_df = df.copy()
@@ -442,10 +426,7 @@ elif choice == "📢  Marketing / WhatsApp":
         if not filtered_df.empty:
             vcf_data = generate_vcf(filtered_df)
             st.download_button(label="📂 Download VCF", data=vcf_data, file_name="Sudantam_Patients.vcf")
-    
     st.markdown("---")
-    
-    # NEW INDIVIDUAL MESSAGING
     st.subheader("2. Direct Message (Individual)")
     if not df.empty:
         names_sorted = sorted(df["Name"].tolist())
@@ -456,7 +437,7 @@ elif choice == "📢  Marketing / WhatsApp":
             wa_text = st.text_area("Message:", value="Hello, this is a reminder from Sudantam Dental Clinic...")
             if wa_text:
                 direct_link = generate_wa_link(t_data["Contact"], wa_text)
-                st.markdown(f'''<a href="{direct_link}" target="_blank"><button style="background-color:#25D366; color:white; border:none; padding:10px; border-radius:5px;">📨 Open WhatsApp Chat</button></a>''', unsafe_allow_html=True)
+                st.markdown(f'''<a href="{direct_link}" target="_blank"><button style="background-color:#25D366; color:white; border:none; padding:10px; border-radius:5px;">📨 Open WhatsApp Web</button></a>''', unsafe_allow_html=True)
 
 elif choice == "💰  Manage Defaulters":
     st.header("💰 Manage Pending Dues")
@@ -479,7 +460,6 @@ elif choice == "🔧  Manage Data":
         if patient_to_edit:
             idx = df.index[df["Name"] == patient_to_edit].tolist()[0]
             p_data = df.iloc[idx]
-            
             with st.form("edit_form"):
                 st.subheader("✏️ Edit Details")
                 c1, c2 = st.columns(2)
@@ -492,67 +472,40 @@ elif choice == "🔧  Manage Data":
                     if pd.isna(parsed): default_date = datetime.date.today() + datetime.timedelta(days=7)
                     else: default_date = parsed.date()
                 except: default_date = datetime.date.today() + datetime.timedelta(days=7)
-                
                 is_scheduled = (str(p_data.get("Next Appointment")) not in ["Not Required", "nan", "NaT"])
                 schedule_edit = st.checkbox("Scheduled Next Visit?", value=is_scheduled)
-                
-                if schedule_edit:
-                    new_app_date = st.date_input("Next Visit", value=default_date, format="DD-MM-YYYY")
-                    final_edit_app_str = new_app_date.strftime("%d-%m-%Y")
+                if schedule_edit: new_app_date = st.date_input("Next Visit", value=default_date, format="DD-MM-YYYY"); final_edit_app_str = new_app_date.strftime("%d-%m-%Y")
                 else: final_edit_app_str = "Not Required"
-
                 if st.form_submit_button("💾 Update Info"):
-                    df.at[idx, "Name"] = new_name
-                    df.at[idx, "Contact"] = new_contact
-                    df.at[idx, "Next Appointment"] = final_edit_app_str
-                    save_data(df)
-                    st.success("Updated!")
-                    st.rerun()
-
+                    df.at[idx, "Name"] = new_name; df.at[idx, "Contact"] = new_contact; df.at[idx, "Next Appointment"] = final_edit_app_str
+                    save_data(df); st.success("Updated!"); st.rerun()
             st.markdown("---")
             st.subheader("❌ Delete Record")
             st.warning(f"Are you sure you want to delete **{patient_to_edit}**? This cannot be undone.")
             col_del1, col_del2 = st.columns([1, 4])
             with col_del1:
-                if st.button("🗑️ YES, DELETE", type="primary", use_container_width=True):
-                    df = df.drop(idx)
-                    save_data(df)
-                    st.success(f"Deleted {patient_to_edit}.")
-                    st.rerun()
+                if st.button("🗑️ YES, DELETE", type="primary", use_container_width=True): df = df.drop(idx); save_data(df); st.success(f"Deleted {patient_to_edit}."); st.rerun()
 
 elif choice == "🔍  Search Registry":
     st.header("🔍 Registry")
-    
-    # SEARCH
     q = st.text_input("Search Name")
     if not df.empty and q: 
         results = df[df["Name"].str.contains(q, case=False, na=False)]
         st.dataframe(results, use_container_width=True)
     elif not df.empty: 
         st.dataframe(df, use_container_width=True)
-        results = df # Allow selection from full list if no search query
-
+        results = df
     st.markdown("---")
-    
-    # NEW DELETE SECTION IN SEARCH TAB
     if not df.empty:
         st.subheader("🗑️ Delete Entry")
         st.caption("Select a patient from the search results to delete them.")
-        
-        # Filter dropdown based on search
         if q: available_names = results["Name"].tolist()
         else: available_names = df["Name"].tolist()
-        
         delete_target = st.selectbox("Select Patient to Delete", [""] + sorted(available_names), key="del_reg")
-        
         if delete_target:
             idx = df.index[df["Name"] == delete_target].tolist()[0]
             st.error(f"⚠️ Warning: You are about to delete **{delete_target}**.")
-            if st.button("❌ CONFIRM DELETE", type="primary"):
-                df = df.drop(idx)
-                save_data(df)
-                st.success(f"Deleted {delete_target}")
-                st.rerun()
+            if st.button("❌ CONFIRM DELETE", type="primary"): df = df.drop(idx); save_data(df); st.success(f"Deleted {delete_target}"); st.rerun()
 
 elif choice == "🗓️  Today's Queue":
     st.header("Today's Queue")
