@@ -61,9 +61,7 @@ st.markdown("""
 def clean_text(text):
     """Removes unsupported characters to prevent PDF crashes."""
     if not isinstance(text, str): return str(text)
-    # Replace Rupee symbol
     text = text.replace("₹", "Rs.")
-    # Remove other non-latin characters (emojis, etc.)
     return text.encode('latin-1', 'replace').decode('latin-1')
 
 class SudantamPDF(FPDF):
@@ -131,7 +129,11 @@ with tabs[1]:
         idx = df.index[df["Name"] == pt_select].tolist()[0]
         row = df.iloc[idx]
         
-        st.info("🦷 FDI Tooth Selection (Select Affected Teeth)")
+        st.info("🦷 FDI Tooth Selection")
+        
+
+[Image of the FDI tooth numbering system]
+
         c1, c2 = st.columns(2)
         ur = c1.multiselect("UR (11-18)", [str(x) for x in range(11, 19)][::-1])
         ul = c2.multiselect("UL (21-28)", [str(x) for x in range(21, 29)])
@@ -161,20 +163,10 @@ with tabs[1]:
             st.markdown("#### 🛠️ Comprehensive Treatment List")
             tx_done = st.selectbox("TREATMENT CATEGORY", [
                 "", 
-                "Consultation",
-                "Scaling & Polishing",
-                "Composite Filling",
-                "Root Canal (RCT)",
-                "Simple Extraction",
-                "Impacted Molar Extraction (Surgical)",
-                "Orthodontics: Metal Braces",
-                "Orthodontics: Ceramic Braces",
-                "Orthodontics: Invisible Braces (Invisalign)",
-                "Prosthetics: PFM Crown",
-                "Prosthetics: Zirconia Crown",
-                "Prosthetics: Bridge",
-                "Implant",
-                "Veneers"
+                "Consultation", "Scaling & Polishing", "Composite Filling", "Root Canal (RCT)",
+                "Simple Extraction", "Impacted Molar Extraction (Surgical)", "Orthodontics: Metal Braces",
+                "Orthodontics: Ceramic Braces", "Orthodontics: Invisible Braces (Invisalign)",
+                "Prosthetics: PFM Crown", "Prosthetics: Zirconia Crown", "Prosthetics: Bridge", "Implant", "Veneers"
             ])
             notes = st.text_area("CLINICAL NOTES / OBSERVATIONS")
             b1, b2 = st.columns(2)
@@ -184,15 +176,18 @@ with tabs[1]:
             if st.form_submit_button("💾 SAVE & GENERATE PDF"):
                 fdi = ", ".join(ur + ul + lr + ll)
                 rx_str = " | ".join([f"{m['Medicine']} ({m['Dosage']} x {m['Duration']})" for m in st.session_state.temp_rx])
-                due = (bill - paid) + float(row['Pending Amount'] if row['Pending Amount'] else 0)
                 
-                # Update DB
-                log = f"\nDATE: {datetime.date.today()}\nTx: {tx_done} (Teeth: {fdi})\nNotes: {notes}\nRx: {rx_str}\nPaid: {paid}"
+                # Logic: Current Due vs Total Due
+                old_balance = float(row['Pending Amount']) if row['Pending Amount'] else 0
+                current_due = bill - paid
+                total_outstanding = old_balance + current_due
+                
+                log = f"\n📅 {datetime.date.today()}\nTx: {tx_done} (Teeth: {fdi})\nNotes: {notes}\nRx: {rx_str}\nPaid: {paid}"
                 df.at[idx, "Visit Log"] = str(row['Visit Log']) + log
-                df.at[idx, "Pending Amount"] = due
+                df.at[idx, "Pending Amount"] = total_outstanding
                 df.to_csv(LOCAL_DB_FILE, index=False)
                 
-                # PDF Generation (with Safe Text)
+                # PDF Generation (Clean & Separated)
                 pdf = SudantamPDF()
                 pdf.add_page()
                 pdf.set_font('Arial', 'B', 12)
@@ -209,18 +204,30 @@ with tabs[1]:
                 pdf.ln(5)
                 
                 # Prescription
-                pdf.set_font('Arial', 'B', 12); pdf.cell(0, 10, "Prescription:", 0, 1)
-                pdf.set_font('Arial', '', 11)
-                for m in st.session_state.temp_rx:
-                    pdf.cell(0, 8, clean_text(f"- {m['Medicine']} ({m['Dosage']} for {m['Duration']})"), 0, 1)
+                if st.session_state.temp_rx:
+                    pdf.set_font('Arial', 'B', 12); pdf.cell(0, 10, "Prescription:", 0, 1)
+                    pdf.set_font('Arial', '', 11)
+                    for m in st.session_state.temp_rx:
+                        pdf.cell(0, 8, clean_text(f"- {m['Medicine']} ({m['Dosage']} for {m['Duration']})"), 0, 1)
                 
-                # Financials
-                pdf.ln(5)
-                pdf.set_font('Arial', 'B', 12); pdf.cell(0, 10, "Financials:", 0, 1)
+                # Financials (Separated to avoid confusion)
+                pdf.ln(10)
+                pdf.set_font('Arial', 'B', 12); pdf.cell(0, 10, "Invoice Summary:", 0, 1)
                 pdf.set_font('Arial', '', 11)
-                pdf.cell(0, 8, clean_text(f"Total Bill: Rs. {bill}"), 0, 1)
-                pdf.cell(0, 8, clean_text(f"Paid Now: Rs. {paid}"), 0, 1)
-                pdf.cell(0, 8, clean_text(f"Balance Due: Rs. {due}"), 0, 1)
+                
+                # 1. Today's Transaction
+                pdf.cell(100, 8, clean_text(f"Procedure Bill: Rs. {bill}"), 0, 1)
+                pdf.cell(100, 8, clean_text(f"Amount Paid:    Rs. {paid}"), 0, 1)
+                
+                # 2. Total Outstanding (Only show if there is a balance)
+                pdf.ln(2)
+                if total_outstanding > 0:
+                    pdf.set_font('Arial', 'B', 11)
+                    pdf.cell(100, 8, clean_text(f"TOTAL PENDING DUE: Rs. {total_outstanding}"), 0, 1)
+                else:
+                    pdf.set_font('Arial', 'B', 11)
+                    pdf.set_text_color(0, 128, 0) # Green text
+                    pdf.cell(100, 8, "Balance Cleared: Rs. 0", 0, 1)
                 
                 pdf_name = f"Rx_{clean_text(row['Name']).replace(' ','_')}.pdf"
                 pdf.output(pdf_name)
@@ -255,21 +262,37 @@ with tabs[2]:
                 with open(h_file, "rb") as f:
                     st.download_button("📥 DOWNLOAD HISTORY PDF", f, file_name=h_file)
 
-# --- TAB 4: DUES ---
+# --- TAB 4: DUES (WITH CLEAR BALANCE BUTTONS) ---
 with tabs[3]:
-    st.markdown("### 💰 Manage Dues")
+    st.markdown("### 💰 Payment Manager")
     df["Pending Amount"] = pd.to_numeric(df["Pending Amount"], errors='coerce').fillna(0)
     defaulters = df[df["Pending Amount"] > 0]
+    
     if not defaulters.empty:
-        st.dataframe(defaulters[["Name", "Contact", "Pending Amount"]], use_container_width=True)
-        with st.form("payment"):
-            payer = st.selectbox("Select Payer", [""] + defaulters["Name"].tolist())
-            rec = st.number_input("Amount Received", step=100)
-            if st.form_submit_button("✅ UPDATE BALANCE"):
-                p_idx = df.index[df["Name"] == payer].tolist()[0]
-                df.at[p_idx, "Pending Amount"] = float(df.at[p_idx, "Pending Amount"]) - rec
-                df.to_csv(LOCAL_DB_FILE, index=False)
-                st.rerun()
+        for idx, row in defaulters.iterrows():
+            with st.expander(f"🔴 {row['Name']} - Due: Rs. {row['Pending Amount']}"):
+                c1, c2 = st.columns([2, 1])
+                c1.write(f"Contact: {row['Contact']}")
+                
+                # ONE-CLICK CLEAR BUTTON
+                if c2.button(f"✅ CLEAR FULL BALANCE (Rs. {row['Pending Amount']})", key=f"pay_{idx}"):
+                    df.at[idx, "Pending Amount"] = 0
+                    log_entry = f"\n📅 {datetime.date.today()} | Payment: Full Balance Cleared"
+                    df.at[idx, "Visit Log"] = str(row['Visit Log']) + log_entry
+                    df.to_csv(LOCAL_DB_FILE, index=False)
+                    st.success(f"Cleared dues for {row['Name']}!")
+                    st.rerun()
+                    
+                # PARTIAL PAYMENT OPTION
+                st.markdown("---")
+                part_pay = st.number_input(f"Partial Payment for {row['Name']}", step=100, key=f"part_{idx}")
+                if st.button(f"Update Partial for {row['Name']}", key=f"upd_{idx}"):
+                    if part_pay > 0:
+                        df.at[idx, "Pending Amount"] = float(row['Pending Amount']) - part_pay
+                        df.to_csv(LOCAL_DB_FILE, index=False)
+                        st.rerun()
+    else:
+        st.success("🎉 No Pending Dues! All accounts are clear.")
 
 # --- TAB 5: SYNC ---
 with tabs[4]:
