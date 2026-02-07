@@ -3,6 +3,7 @@ import pandas as pd
 import datetime
 import os
 import time
+import urllib.parse
 from fpdf import FPDF
 
 # ==========================================
@@ -101,6 +102,7 @@ LOGO_FILENAME = "logo.jpeg"
 if 'temp_rx' not in st.session_state: st.session_state.temp_rx = []
 if 'temp_tx' not in st.session_state: st.session_state.temp_tx = []
 if 'pdf_ready' not in st.session_state: st.session_state.pdf_ready = None
+if 'wa_link' not in st.session_state: st.session_state.wa_link = None
 
 def load_data():
     if os.path.exists(LOCAL_DB_FILE):
@@ -143,7 +145,7 @@ with tabs[0]:
             else:
                 st.error("⚠️ Name is required")
 
-# --- TAB 2: CLINICAL (MULTI-TOOTH TREATMENT) ---
+# --- TAB 2: CLINICAL ---
 with tabs[1]:
     st.markdown("### 🦷 Advanced Treatment & Prescription")
     pt_select = st.selectbox("SEARCH PATIENT", [""] + df["Name"].tolist())
@@ -165,26 +167,13 @@ with tabs[1]:
                 "Full Mouth", "Upper Arch", "Lower Arch"
             ])
         with col_t2:
-            # RESTORED FULL LIST
             tx_type = st.selectbox("Procedure", [
                 "", 
-                "Consultation", 
-                "Scaling & Polishing", 
-                "Composite Filling", 
-                "Root Canal (RCT)",
-                "Simple Extraction", 
-                "Impacted Molar Extraction (Surgical)", 
-                "Orthodontics: Metal Braces",
-                "Orthodontics: Ceramic Braces", 
-                "Orthodontics: Invisible Braces (Invisalign)",
-                "Prosthetics: PFM Crown", 
-                "Prosthetics: Zirconia Crown", 
-                "Prosthetics: Bridge", 
-                "Complete Denture",
-                "Removable Partial Denture (RPD)",
-                "Implant", 
-                "Veneers", 
-                "X-Ray (IOPA)"
+                "Consultation", "Scaling & Polishing", "Composite Filling", "Root Canal (RCT)",
+                "Simple Extraction", "Impacted Molar Extraction (Surgical)", 
+                "Orthodontics: Metal Braces", "Orthodontics: Ceramic Braces", "Orthodontics: Invisible Braces",
+                "Prosthetics: PFM Crown", "Prosthetics: Zirconia Crown", "Prosthetics: Bridge", 
+                "Complete Denture", "Removable Partial Denture (RPD)", "Implant", "Veneers", "X-Ray (IOPA)"
             ])
             tx_cost = st.number_input("Cost (Optional)", step=100, value=0)
 
@@ -234,7 +223,7 @@ with tabs[1]:
             bill = c_bill1.number_input("TOTAL BILL", value=float(suggested_total), step=100.0)
             paid = c_bill2.number_input("PAID NOW", step=100.0, value=0.0)
             
-            if st.form_submit_button("💾 SAVE & PRINT INVOICE"):
+            if st.form_submit_button("💾 SAVE & GENERATE PDF"):
                 tx_summary = ", ".join([f"{t['Tooth']}: {t['Treatment']}" for t in st.session_state.temp_tx])
                 rx_summary = ", ".join([f"{m['Medicine']}" for m in st.session_state.temp_rx])
                 
@@ -252,8 +241,6 @@ with tabs[1]:
                 # --- PDF GENERATION ---
                 pdf = SudantamPDF()
                 pdf.add_page()
-                
-                # Header
                 pdf.set_font('Arial', '', 11)
                 pdf.cell(100, 8, clean_text(f"Patient Name: {row['Name']}"), 0, 0)
                 pdf.cell(0, 8, clean_text(f"Date: {today_str}"), 0, 1, 'R')
@@ -261,7 +248,6 @@ with tabs[1]:
                 pdf.cell(0, 8, clean_text(f"Contact: {row['Contact']}"), 0, 1, 'R')
                 pdf.ln(5)
                 
-                # Treatment Table
                 pdf.section_title("TREATMENT DETAILS")
                 pdf.set_font('Arial', 'B', 10)
                 pdf.cell(30, 8, "Tooth", 1, 0, 'C')
@@ -274,7 +260,6 @@ with tabs[1]:
                     pdf.cell(50, 8, clean_text(f"{tx['Cost']}"), 1, 1, 'R')
                 pdf.ln(5)
                 
-                # Prescription Table
                 if st.session_state.temp_rx:
                     pdf.section_title("PRESCRIPTION")
                     pdf.set_font('Arial', 'B', 10)
@@ -288,7 +273,6 @@ with tabs[1]:
                         pdf.cell(50, 8, clean_text(rx['Duration']), 1, 1, 'C')
                     pdf.ln(5)
                 
-                # Notes
                 if notes or next_visit:
                     pdf.section_title("NOTES")
                     pdf.set_font('Arial', '', 10)
@@ -296,7 +280,6 @@ with tabs[1]:
                     if next_visit: pdf.cell(0, 8, clean_text(f"Next Visit Date: {next_visit}"), 0, 1)
                     pdf.ln(5)
                 
-                # Invoice Summary
                 pdf.set_x(110)
                 pdf.set_font('Arial', 'B', 12)
                 pdf.cell(50, 8, "Total Bill:", 0, 0, 'R'); pdf.cell(30, 8, clean_text(f"Rs. {bill}"), 0, 1, 'R')
@@ -310,19 +293,31 @@ with tabs[1]:
                     pdf.set_text_color(0, 128, 0)
                     pdf.cell(80, 8, "Balance Cleared", 0, 1, 'R')
 
-                # Output
                 pdf_name = f"Invoice_{clean_text(row['Name']).replace(' ','_')}.pdf"
                 pdf.output(pdf_name)
+                
+                # --- WHATSAPP LOGIC ---
+                msg_text = urllib.parse.quote(f"Dear {row['Name']},\n\nThank you for visiting Sudantam Dental Clinic.\nPlease find your attached invoice/prescription for today's visit.\n\nRegards,\nDr. Sugam Jangid")
+                wa_url = f"https://wa.me/91{row['Contact']}?text={msg_text}"
+                
                 st.session_state.pdf_ready = pdf_name
+                st.session_state.wa_link = wa_url
                 st.session_state.temp_rx = []
                 st.session_state.temp_tx = []
                 st.rerun()
 
         if st.session_state.pdf_ready:
-            with open(st.session_state.pdf_ready, "rb") as f:
-                st.download_button("📥 DOWNLOAD INVOICE", f, file_name=st.session_state.pdf_ready)
-            if st.button("✅ Done"):
+            c1, c2 = st.columns(2)
+            with c1:
+                with open(st.session_state.pdf_ready, "rb") as f:
+                    st.download_button("📥 DOWNLOAD INVOICE", f, file_name=st.session_state.pdf_ready)
+            with c2:
+                # Direct WhatsApp Link
+                st.link_button("📱 SEND VIA WHATSAPP", st.session_state.wa_link)
+                
+            if st.button("✅ Done (Start New)"):
                 st.session_state.pdf_ready = None
+                st.session_state.wa_link = None
                 st.rerun()
 
 # --- TAB 3: RECORDS ---
