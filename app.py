@@ -128,7 +128,7 @@ with tabs[0]:
         c1, c2 = st.columns(2)
         with c1: age = st.number_input("AGE", min_value=0, step=1, value=0)
         with c2: gender = st.selectbox("GENDER", ["", "Male", "Female", "Other"])
-        mh = st.multiselect("MEDICAL HISTORY", ["None", "Diabetes", "BP", "Thyroid", "Asthma", "Allergy"])
+        mh = st.multiselect("MEDICAL HISTORY", ["Diabetes", "BP", "Thyroid", "Asthma", "Allergy"])
         
         if st.form_submit_button("✅ REGISTER PATIENT"):
             if name and age > 0:
@@ -157,9 +157,8 @@ with tabs[1]:
         
         col_t1, col_t2 = st.columns([1, 2])
         with col_t1:
-            # Single Tooth Selector for precision
             tooth_num = st.selectbox("Select Tooth", [
-                "18", "17", "16", "15", "14", "13", "12", "11",
+                "", "18", "17", "16", "15", "14", "13", "12", "11",
                 "21", "22", "23", "24", "25", "26", "27", "28",
                 "48", "47", "46", "45", "44", "43", "42", "41",
                 "31", "32", "33", "34", "35", "36", "37", "38",
@@ -167,15 +166,16 @@ with tabs[1]:
             ])
         with col_t2:
             tx_type = st.selectbox("Procedure", [
-                "Consultation", "Scaling & Polishing", "Composite Filling", "Root Canal (RCT)",
+                "", "Consultation", "Scaling & Polishing", "Composite Filling", "Root Canal (RCT)",
                 "Extraction", "Impacted Extraction", "PFM Crown", "Zirconia Crown", "Bridge", 
                 "Complete Denture", "Implant", "Veneers", "X-Ray (IOPA)"
             ])
-            tx_cost = st.number_input("Cost (Optional)", step=100)
+            tx_cost = st.number_input("Cost (Optional)", step=100, value=0)
 
         if st.button("➕ Add Procedure to List"):
-            st.session_state.temp_tx.append({"Tooth": tooth_num, "Treatment": tx_type, "Cost": tx_cost})
-            st.rerun()
+            if tooth_num and tx_type:
+                st.session_state.temp_tx.append({"Tooth": tooth_num, "Treatment": tx_type, "Cost": tx_cost})
+                st.rerun()
 
         # Show Added Treatments
         if st.session_state.temp_tx:
@@ -212,13 +212,13 @@ with tabs[1]:
         with st.form("final_tx"):
             st.markdown("#### 🧾 Invoice & Follow Up")
             notes = st.text_area("Clinical Notes")
-            next_visit = st.date_input("Next Visit Date", min_value=datetime.date.today())
+            next_visit = st.date_input("Next Visit Date", value=None)
             
             c_bill1, c_bill2 = st.columns(2)
             # Auto-sum logic (optional, user can override)
             suggested_total = sum([x['Cost'] for x in st.session_state.temp_tx])
             bill = c_bill1.number_input("TOTAL BILL", value=float(suggested_total), step=100.0)
-            paid = c_bill2.number_input("PAID NOW", step=100.0)
+            paid = c_bill2.number_input("PAID NOW", step=100.0, value=0.0)
             
             if st.form_submit_button("💾 SAVE & PRINT INVOICE"):
                 # Data Prep
@@ -281,7 +281,7 @@ with tabs[1]:
                     pdf.section_title("NOTES")
                     pdf.set_font('Arial', '', 10)
                     if notes: pdf.multi_cell(0, 6, clean_text(f"Clinical Notes: {notes}"))
-                    pdf.cell(0, 8, clean_text(f"Next Visit Date: {next_visit}"), 0, 1)
+                    if next_visit: pdf.cell(0, 8, clean_text(f"Next Visit Date: {next_visit}"), 0, 1)
                     pdf.ln(5)
                 
                 # Invoice Summary (Bottom Right)
@@ -336,7 +336,7 @@ with tabs[2]:
         st.warning(f"**Pending Dues:** Rs. {row['Pending Amount']}")
         st.text_area("History", row['Visit Log'], height=150)
         
-        # Edit/Delete UI (Same as before)
+        # Edit/Delete UI
         c_edit, c_del = st.columns(2)
         with c_edit.expander("✏️ EDIT"):
             with st.form("edit"):
