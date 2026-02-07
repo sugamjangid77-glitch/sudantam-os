@@ -9,25 +9,24 @@ import gspread
 from google.oauth2.service_account import Credentials
 
 # ==========================================
-# 1. CLOUD CONNECTION (BY ID = SYNCED)
+# 1. CLOUD CONNECTION (BY ID)
 # ==========================================
-# 👇 PASTE THE SAME SHEET ID YOU USED FOR PC 👇
-SHEET_ID = "120wdQHfL9mZB7OnYyHg-9o2Px-6cZogctcuNEHjhD9Q"
+# 👇 PASTE YOUR SHEET ID HERE 👇
+SHEET_ID = "PASTE_YOUR_SHEET_ID_HERE"
 
 def get_db_connection():
     scope = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
     creds = None
     try:
-        # Check for Secrets (Mobile Deployment)
+        # Check for Secrets (Mobile)
         if "gcp_service_account" in st.secrets:
             creds = Credentials.from_service_account_info(st.secrets["gcp_service_account"], scopes=scope)
-        # Check for Local Key (PC Testing)
+        # Check for Local Key (PC)
         elif os.path.exists("key.json"):
             creds = Credentials.from_service_account_file("key.json", scopes=scope)
         else:
             return None
         
-        # Connect using the ID
         client = gspread.authorize(creds)
         return client.open_by_key(SHEET_ID).sheet1
     except Exception as e:
@@ -64,7 +63,7 @@ def save_to_cloud(df):
 df = load_data()
 
 # ==========================================
-# 3. MOBILE UI THEME
+# 3. UI THEME
 # ==========================================
 st.set_page_config(page_title="Sudantam Mobile", layout="wide", page_icon="🦷")
 
@@ -73,7 +72,6 @@ st.markdown("""
         :root { color-scheme: light !important; }
         .stApp { background-color: #FFFFFF !important; color: black !important; }
 
-        /* MOBILE TABS */
         .stTabs [data-baseweb="tab-list"] {
             gap: 5px; background-color: #f0f2f6; padding: 5px; border-radius: 10px;
             overflow-x: auto; white-space: nowrap;
@@ -85,7 +83,6 @@ st.markdown("""
         }
         .stTabs [aria-selected="true"] { background-color: #2C7A6F !important; color: #FFFFFF !important; }
 
-        /* LARGE TOUCH BUTTONS */
         div.stButton > button {
             background-color: #2C7A6F !important; color: #FFFFFF !important;
             font-weight: 800 !important; font-size: 18px !important;
@@ -93,7 +90,6 @@ st.markdown("""
             width: 100% !important; border: none !important; margin-top: 10px;
         }
 
-        /* INPUTS */
         input, select, textarea, [data-baseweb="select"] > div {
             background-color: #FFFFFF !important; color: #000000 !important;
             border: 2px solid #2C7A6F !important; border-radius: 10px !important;
@@ -139,7 +135,7 @@ if 'pdf_ready' not in st.session_state: st.session_state.pdf_ready = None
 if 'wa_link' not in st.session_state: st.session_state.wa_link = None
 
 # ==========================================
-# 5. MOBILE APP INTERFACE
+# 5. MOBILE APP UI
 # ==========================================
 if os.path.exists("logo.jpeg"): st.image("logo.jpeg")
 
@@ -178,19 +174,12 @@ with tabs[1]:
         idx = df.index[df["Name"] == pt_select].tolist()[0]
         row = df.iloc[idx]
         
-        # A. Procedure
         with st.expander("🛠️ Add Procedure", expanded=True):
             st.info("Select Tooth -> Treatment -> Add")
             c1, c2 = st.columns([1, 2])
             tooth = c1.selectbox("Tooth", ["", "18","17","16","15","14","13","12","11", "21","22","23","24","25","26","27","28", "48","47","46","45","44","43","42","41", "31","32","33","34","35","36","37","38", "Full Mouth"])
-            tx = c2.selectbox("Tx", ["", 
-                "Consultation", "Scaling", "Filling", "RCT", 
-                "Extraction", "Surgical Ext", 
-                "Metal Braces", "Ceramic Braces", "Invisalign",
-                "PFM Crown", "Zirconia Crown", "Bridge", 
-                "Denture", "RPD", "Implant", "Veneer", "X-Ray"])
+            tx = c2.selectbox("Tx", ["", "Consultation", "Scaling", "Filling", "RCT", "Extraction", "Surgical Ext", "Metal Braces", "Ceramic Braces", "Invisalign", "PFM Crown", "Zirconia Crown", "Bridge", "Denture", "RPD", "Implant", "Veneer", "X-Ray"])
             cost = st.number_input("Cost", step=100, value=0)
-            
             if st.button("➕ Add Tx"):
                 if tooth and tx:
                     st.session_state.temp_tx.append({"Tooth": tooth, "Tx": tx, "Cost": cost})
@@ -199,12 +188,10 @@ with tabs[1]:
                 st.dataframe(pd.DataFrame(st.session_state.temp_tx))
                 if st.button("Clear Tx"): st.session_state.temp_tx = []; st.rerun()
 
-        # B. Prescription
         with st.expander("💊 Add Medicine", expanded=False):
             m = st.selectbox("Drug", ["", "Amoxicillin 500", "Augmentin 625", "Zerodol-SP", "Ketorol DT", "Pan-D", "Metrogyl 400", "Chymoral Forte"])
             d = st.selectbox("Dose", ["", "1-0-1", "1-1-1", "1-0-0", "SOS"])
             dur = st.selectbox("Days", ["", "3 Days", "5 Days", "7 Days"])
-            
             if st.button("➕ Add Rx"):
                 if m and d:
                     st.session_state.temp_rx.append({"Medicine": m, "Dosage": d, "Duration": dur})
@@ -213,7 +200,6 @@ with tabs[1]:
                 st.table(pd.DataFrame(st.session_state.temp_rx))
                 if st.button("Clear Rx"): st.session_state.temp_rx = []; st.rerun()
 
-        # C. Finalize
         st.markdown("---")
         with st.form("finish"):
             st.markdown("#### 🧾 Invoice")
@@ -244,39 +230,28 @@ with tabs[1]:
                 pdf.set_font('Arial', '', 11)
                 pdf.cell(0, 6, clean_text(f"Patient: {row['Name']} | Date: {today}"), 0, 1)
                 pdf.ln(3)
-                
                 pdf.section_title("TREATMENT")
                 pdf.set_font('Arial', '', 10)
-                for t in st.session_state.temp_tx:
-                    pdf.cell(0, 6, clean_text(f"{t['Tooth']} - {t['Tx']} (Rs. {t['Cost']})"), 0, 1)
+                for t in st.session_state.temp_tx: pdf.cell(0, 6, clean_text(f"{t['Tooth']} - {t['Tx']} (Rs. {t['Cost']})"), 0, 1)
                 pdf.ln(3)
-                
                 if st.session_state.temp_rx:
                     pdf.section_title("PRESCRIPTION")
-                    for r in st.session_state.temp_rx:
-                        pdf.cell(0, 6, clean_text(f"{r['Medicine']} - {r['Dosage']} ({r['Duration']})"), 0, 1)
-                    pdf.ln(3)
-                
+                    for r in st.session_state.temp_rx: pdf.cell(0, 6, clean_text(f"{r['Medicine']} - {r['Dosage']} ({r['Duration']})"), 0, 1)
                 pdf.ln(5)
                 pdf.set_font('Arial', 'B', 12)
                 pdf.cell(0, 6, f"Bill: {bill} | Paid: {paid}", 0, 1, 'R')
                 if due > 0:
-                    pdf.set_text_color(200, 0, 0)
-                    pdf.cell(0, 6, f"TOTAL DUE: {due}", 0, 1, 'R')
+                    pdf.set_text_color(200, 0, 0); pdf.cell(0, 6, f"TOTAL DUE: {due}", 0, 1, 'R')
                 else:
-                    pdf.set_text_color(0, 128, 0)
-                    pdf.cell(0, 6, "All Clear", 0, 1, 'R')
+                    pdf.set_text_color(0, 128, 0); pdf.cell(0, 6, "All Clear", 0, 1, 'R')
 
                 fname = f"Inv_{clean_text(row['Name']).replace(' ','_')}.pdf"
                 pdf.output(fname)
+                st.session_state.pdf_ready = fname
                 
                 msg = urllib.parse.quote(f"Dear {row['Name']},\nHere is your invoice for today's treatment at Sudantam Dental Clinic.")
-                wa = f"https://wa.me/91{row['Contact']}?text={msg}"
-                
-                st.session_state.pdf_ready = fname
-                st.session_state.wa_link = wa
-                st.session_state.temp_tx = []
-                st.session_state.temp_rx = []
+                st.session_state.wa_link = f"https://wa.me/91{row['Contact']}?text={msg}"
+                st.session_state.temp_tx = []; st.session_state.temp_rx = []
                 st.rerun()
 
         if st.session_state.pdf_ready:
@@ -288,7 +263,7 @@ with tabs[1]:
                 st.link_button("📱 WhatsApp", st.session_state.wa_link)
             if st.button("✅ Done"): st.session_state.pdf_ready = None; st.rerun()
 
-# --- TAB 3: RECORDS ---
+# --- TAB 3: RECORDS (WITH DOWNLOAD PDF) ---
 with tabs[2]:
     st.markdown("### 📂 Records")
     sort = st.radio("Sort", ["Newest", "Oldest", "A-Z", "Dues"], horizontal=True)
@@ -309,6 +284,28 @@ with tabs[2]:
         st.info(f"{row['Name']} | Due: Rs. {row['Pending Amount']}")
         st.text_area("History", row['Visit Log'], height=150)
         
+        # --- PDF HISTORY DOWNLOADER ---
+        pdf_h = SudantamPDF()
+        pdf_h.add_page()
+        pdf_h.set_font('Arial', '', 11)
+        pdf_h.cell(0, 6, clean_text(f"Patient History Record"), 0, 1, 'C')
+        pdf_h.ln(5)
+        pdf_h.cell(0, 6, clean_text(f"Name: {row['Name']} | Age: {row['Age']} | Sex: {row['Gender']}"), 0, 1)
+        pdf_h.cell(0, 6, clean_text(f"Contact: {row['Contact']}"), 0, 1)
+        pdf_h.cell(0, 6, clean_text(f"Current Dues: Rs. {row['Pending Amount']}"), 0, 1)
+        pdf_h.ln(5)
+        pdf_h.section_title("VISIT LOG & HISTORY")
+        pdf_h.set_font('Arial', '', 10)
+        pdf_h.multi_cell(0, 6, clean_text(str(row['Visit Log'])))
+        
+        h_file = f"History_{clean_text(row['Name']).replace(' ','_')}.pdf"
+        pdf_h.output(h_file)
+        
+        with open(h_file, "rb") as f:
+            st.download_button("📥 DOWNLOAD HISTORY PDF", f, file_name=h_file)
+        
+        st.markdown("---")
+
         with st.expander("Edit / Delete"):
             n = st.text_input("Name", row['Name'])
             c = st.text_input("Phone", row['Contact'])
