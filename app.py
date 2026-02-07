@@ -14,6 +14,7 @@ from google.oauth2.service_account import Credentials
 # 0. AUTO-GENERATE ASSETS
 # ==========================================
 def generate_assets():
+    # 1. Logo Placeholder
     if not os.path.exists("logo.jpeg"):
         try:
             img = Image.new('RGB', (200, 200), color='#2C7A6F')
@@ -22,12 +23,23 @@ def generate_assets():
             img.save("logo.jpeg")
         except: pass
     
+    # 2. Tooth Diagram Placeholder
     if not os.path.exists("tooth_diagram.png"):
         try:
             img = Image.new('RGB', (400, 200), color='white')
             d = ImageDraw.Draw(img)
             d.text((10, 90), "Tooth Diagram Placeholder", fill=(0, 0, 0))
             img.save("tooth_diagram.png")
+        except: pass
+
+    # 3. Review QR Placeholder
+    if not os.path.exists("review_qr.png"):
+        try:
+            img = Image.new('RGB', (200, 200), color='white')
+            d = ImageDraw.Draw(img)
+            d.rectangle([10, 10, 190, 190], outline="black", width=5)
+            d.text((40, 90), "SCAN TO REVIEW", fill="black")
+            img.save("review_qr.png")
         except: pass
 
 generate_assets()
@@ -125,8 +137,8 @@ def save_billing(df):
 # 2. CONFIG & CONSTANTS
 # ==========================================
 LOGO_FILENAME = "logo.jpeg"
-DIAGRAM_FILENAME = "tooth_diagram.png"
 PRESCRIPTION_FOLDER = "Prescriptions"
+CONSENT_FOLDER = "Consent_Forms"
 PRIMARY_COLOR = "#2C7A6F"  
 SECONDARY_COLOR = "#F0F8F5" 
 
@@ -160,6 +172,54 @@ COMMON_INSTRUCTIONS = [
     "Take medicines after food.", "Do not spit or rinse for 24 hours (if extraction done)."
 ]
 
+# --- CONSENT TEMPLATES ---
+CONSENT_TEMPLATES = {
+    "Extraction (Tooth Removal)": """I hereby authorize Dr. Sugam Jangid to perform the extraction of the affected tooth/teeth.
+    
+Risks Explained:
+1. Pain, swelling, and bruising after the procedure.
+2. Bleeding which may last for a few hours.
+3. Infection (Dry Socket) if instructions are not followed.
+4. Possible damage to adjacent teeth or fillings.
+5. In rare cases (Lower Wisdom Teeth), temporary or permanent numbness of the lip/tongue due to nerve involvement.
+6. In rare cases (Upper Molars), sinus involvement requiring further management.
+
+I have informed the doctor about my complete medical history, including any blood thinners or allergies.""",
+
+    "Root Canal Treatment (RCT)": """I hereby authorize Dr. Sugam Jangid to perform Root Canal Treatment on my tooth.
+    
+Risks Explained:
+1. The procedure may require multiple sittings.
+2. There is a small risk of instrument breakage inside the canal (rare).
+3. Post-operative pain or swelling may occur for a few days.
+4. The tooth becomes brittle after RCT and MUST be crowned (capped) to prevent fracture.
+5. In case of severe infection or calcified canals, the treatment may not be successful, and extraction might be required.
+
+I understand that a Crown/Cap is mandatory after this procedure.""",
+
+    "Dental Implant Surgery": """I hereby authorize Dr. Sugam Jangid to place Dental Implants.
+    
+Risks Explained:
+1. Swelling, bruising, and pain at the surgical site.
+2. Infection or rejection of the implant (rare but possible).
+3. Nerve injury resulting in numbness (paresthesia).
+4. Sinus perforation (for upper jaw implants).
+5. The healing period (Osseointegration) may take 3-6 months before the final tooth is fixed.
+6. Smoking drastically reduces the success rate of implants.
+
+I agree to follow all post-operative instructions strictly.""",
+
+    "Orthodontic Treatment (Braces)": """I hereby consent to Orthodontic treatment (Braces/Aligners).
+    
+Terms:
+1. Treatment duration is an estimate (usually 12-24 months) and may vary.
+2. Regular monthly visits are mandatory.
+3. Oral hygiene must be maintained meticulously to prevent gum disease.
+4. Relapse (teeth moving back) can occur if Retainers are not worn as prescribed after treatment.
+5. Root resorption (shortening of roots) is a rare complication.
+"""
+}
+
 def get_local_ip():
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -169,29 +229,52 @@ def get_local_ip():
     except: IP = "127.0.0.1"
     return IP
 
+# ==========================================
+# 3. PROFESSIONAL PDF CLASS
+# ==========================================
 class PDF(FPDF):
     def header(self):
-        if os.path.exists(LOGO_FILENAME): self.image(LOGO_FILENAME, 10, 8, 28)
-        self.set_font('Arial', 'B', 16)
-        self.set_text_color(27, 94, 85)
-        self.cell(0, 8, 'Dr. Sugam Jangid', 0, 1, 'R')
-        self.set_font('Arial', 'I', 10)
-        self.set_text_color(50, 50, 50)
-        self.cell(0, 5, 'Dental Surgeon (BDS)', 0, 1, 'R')
-        self.cell(0, 5, 'Reg No: A-9254', 0, 1, 'R')
-        self.cell(0, 5, '+91-8078656835', 0, 1, 'R')
+        if os.path.exists("logo.jpeg"): self.image("logo.jpeg", 10, 8, 25)
+        self.set_font('Helvetica', 'B', 22)
+        self.set_text_color(44, 122, 111)
+        self.cell(0, 8, 'Sudantam Dental Clinic', 0, 1, 'R')
+        self.set_font('Helvetica', 'B', 10)
+        self.set_text_color(80, 80, 80)
+        self.cell(0, 5, 'Dr. Sugam Jangid (BDS, MDS - Pursuing)', 0, 1, 'R')
+        self.cell(0, 5, 'Reg No: A-9254 | +91-8078656835', 0, 1, 'R')
+        self.set_font('Helvetica', '', 9)
+        self.cell(0, 5, 'Opp. Agrasen Bhawan, Madanganj, Kishangarh - 305801', 0, 1, 'R')
         self.ln(5)
-        self.set_draw_color(27, 94, 85)
-        self.set_line_width(0.5)
-        self.line(10, 38, 200, 38) 
-        self.ln(10)
-    def footer(self):
-        self.set_y(-25)
-        self.set_font('Arial', 'I', 9)
-        self.set_text_color(100, 100, 100)
-        self.cell(0, 5, 'Opposite Agrasen Bhawan, Madanganj, Kishangarh - 305801', 0, 1, 'C')
-        self.cell(0, 5, 'Timing: 9 AM to 2 PM  &  4 PM to 8 PM', 0, 1, 'C')
+        self.set_draw_color(44, 122, 111)
+        self.set_line_width(1.5)
+        self.line(10, 38, 200, 38)
+        self.ln(8)
 
+    def footer(self):
+        self.set_y(-15)
+        self.set_font('Helvetica', 'I', 8)
+        self.set_text_color(150, 150, 150)
+        self.cell(0, 10, 'Sudantam Dental Clinic - Excellence in Dentistry', 0, 0, 'C')
+
+    def add_qr_section(self):
+        if os.path.exists("review_qr.png"):
+            if self.get_y() > 220: self.add_page()
+            self.ln(10)
+            self.set_draw_color(200, 200, 200)
+            self.set_line_width(0.5)
+            self.line(10, self.get_y(), 200, self.get_y())
+            self.ln(10)
+            self.set_font('Helvetica', 'B', 12)
+            self.set_text_color(44, 122, 111)
+            self.cell(0, 6, "Satisfied with your treatment?", 0, 1, 'C')
+            self.set_font('Helvetica', '', 10)
+            self.set_text_color(50, 50, 50)
+            self.cell(0, 6, "Scan to leave us a 5-Star Google Review!", 0, 1, 'C')
+            self.image("review_qr.png", x=87.5, w=35) 
+
+# ==========================================
+# 4. HELPER FUNCTIONS
+# ==========================================
 def create_checkbox_grid(options_list, num_columns=3):
     selected_items = []
     cols = st.columns(num_columns)
@@ -240,7 +323,6 @@ def generate_wa_link(phone, message):
     phone = str(phone).replace(" ", "").replace("-", "")
     if not phone.startswith("+"): phone = "+91" + phone
     encoded_msg = urllib.parse.quote(message)
-    # USE WEB.WHATSAPP FOR DIRECT INTEGRATION
     return f"https://web.whatsapp.com/send?phone={phone}&text={encoded_msg}"
 
 # --- APP START ---
@@ -249,13 +331,30 @@ st.set_page_config(page_title="Sudantam Dental Clinic", layout="wide")
 st.markdown(f"""
 <style>
     [data-testid="stSidebar"] {{ background-color: {SECONDARY_COLOR}; }}
+    [data-testid="stSidebar"] div[role="radiogroup"] {{ display: flex; flex-direction: column; gap: 12px; }}
+    [data-testid="stSidebar"] div[role="radiogroup"] label {{
+        background-color: white !important; padding: 18px !important;
+        border-radius: 15px !important; box-shadow: 0 2px 5px rgba(0,0,0,0.05) !important;
+        border: 2px solid transparent !important; margin: 0 !important; width: 100% !important;
+        font-size: 18px !important; color: #444 !important;
+    }}
+    [data-testid="stSidebar"] div[role="radiogroup"] label[data-checked="true"] {{
+        background-color: {PRIMARY_COLOR} !important; color: white !important;
+    }}
+    [data-testid="stSidebar"] div[role="radiogroup"] label > div:first-child {{ display: none; }}
     div.stButton > button {{
         width: 100%; background-color: {PRIMARY_COLOR}; color: white; height: 50px;
         font-size: 18px !important; border-radius: 8px; border: none; transition: 0.3s;
     }}
-    div.stButton > button:hover {{ background-color: #1B5E55; }}
+    div.stButton > button:hover {{ background-color: #1B5E55; box-shadow: 0 5px 10px rgba(0,0,0,0.2); }}
+    @keyframes pulse-red {{
+        0% {{ box-shadow: 0 0 0 0 rgba(255, 0, 0, 0.7); }}
+        70% {{ box-shadow: 0 0 0 15px rgba(255, 0, 0, 0); }}
+        100% {{ box-shadow: 0 0 0 0 rgba(255, 0, 0, 0); }}
+    }}
     .urgent-alert {{
-        background-color: #ffe6e6; border: 2px solid #ff4d4d; color: #cc0000; padding: 15px; border-radius: 10px; font-weight: bold; text-align: center; margin-bottom: 20px;
+        animation: pulse-red 2s infinite; background-color: #ffe6e6; border: 2px solid #ff4d4d;
+        color: #cc0000; padding: 15px; border-radius: 10px; font-weight: bold; text-align: center; margin-bottom: 20px;
     }}
 </style>
 """, unsafe_allow_html=True)
@@ -263,16 +362,16 @@ st.markdown(f"""
 df = load_data()
 billing_df = load_billing()
 if not os.path.exists(PRESCRIPTION_FOLDER): os.makedirs(PRESCRIPTION_FOLDER)
+if not os.path.exists(CONSENT_FOLDER): os.makedirs(CONSENT_FOLDER)
 
 with st.sidebar:
     if os.path.exists(LOGO_FILENAME): st.image(Image.open(LOGO_FILENAME), use_container_width=True)
     else: st.title("🦷 Sudantam")
     st.write("") 
-    menu_options = ["➕  Add New Patient", "💊  Actions (Rx & Bill)", "📢  Marketing / WhatsApp", "💰  Manage Defaulters", "🔧  Manage Data", "🔍  Search Registry", "🗓️  Today's Queue"]
+    menu_options = ["➕  Add New Patient", "💊  Actions (Rx & Bill)", "✍️  Consent Forms", "📢  Marketing / WhatsApp", "💰  Manage Defaulters", "🔧  Manage Data", "🔍  Search Registry", "🗓️  Today's Queue"]
     choice = st.radio("Main Menu", menu_options, label_visibility="collapsed")
     st.markdown("---")
     
-    # ALERTS
     st.markdown(f"<h4 style='color:{PRIMARY_COLOR}'>🔔 Alerts</h4>", unsafe_allow_html=True)
     today_str = datetime.date.today().strftime("%d-%m-%Y")
     if not df.empty and "Next Appointment" in df.columns:
@@ -337,9 +436,19 @@ elif choice == "💊  Actions (Rx & Bill)":
         col_diag, col_adv = st.columns(2)
         with col_diag: selected_diag = st.multiselect("Diagnosis / Findings:", COMMON_DIAGNOSES)
         with col_adv: selected_advice_treat = st.multiselect("Advised Treatment:", COMMON_ADVICED_TREATMENTS)
+        
         col_med, col_inst = st.columns(2)
-        with col_med: meds = st.multiselect("Medicines:", COMMON_MEDICINES)
-        with col_inst: inst = st.multiselect("Instructions:", COMMON_INSTRUCTIONS)
+        final_meds = []
+        with col_med: 
+            meds_selected = st.multiselect("Select Medicines (Then Edit Dosage Below):", COMMON_MEDICINES)
+            if meds_selected:
+                st.caption("✏️ **Edit Dosages Here:**")
+                for m in meds_selected:
+                    edited_dose = st.text_input(f"Edit: {m.split(' (')[0]}", value=m, key=f"dose_{m}")
+                    final_meds.append(edited_dose)
+        with col_inst: 
+            inst = st.multiselect("Instructions:", COMMON_INSTRUCTIONS)
+
         col_note, col_next_date = st.columns([2, 1])
         with col_note: custom_notes = st.text_area("Custom Notes (Rx)", height=60)
         with col_next_date: 
@@ -384,7 +493,7 @@ elif choice == "💊  Actions (Rx & Bill)":
             new_entry = f"\n\n--- VISIT: {today_date_str} ---\n"
             if selected_diag: new_entry += f"Diagnosis: {', '.join(selected_diag)}\n"
             if sel_treats: new_entry += f"Tx Done: {', '.join(sel_treats)}\n"
-            if meds: new_entry += f"Meds: {', '.join(meds)}\n"
+            if final_meds: new_entry += f"Meds: {', '.join(final_meds)}\n"
             if custom_notes: new_entry += f"Note: {custom_notes}"
             old_notes = str(p_data.get("Treatment Notes", "")); updated_notes = old_notes + new_entry
             df.loc[df["Name"] == patient, "Treatment Notes"] = updated_notes
@@ -395,24 +504,90 @@ elif choice == "💊  Actions (Rx & Bill)":
                 new_bill = pd.DataFrame([{ "Date": today_date_str, "Patient Name": patient, "Treatments": ", ".join([x[0] for x in invoice_lines]), "Total Amount": bill_total, "Paid Amount": amount_paid, "Balance Due": final_balance }])
                 billing_df = pd.concat([billing_df, new_bill], ignore_index=True)
                 save_billing(billing_df)
-            pdf_filename = f"{patient}_{int(p_data['Age'])}_{today_date_str}.pdf"; pdf_path = os.path.join(PRESCRIPTION_FOLDER, pdf_filename)
-            pdf = PDF(); pdf.add_page(); pdf.set_font("Arial", 'B', 11)
-            pdf.cell(30, 8, "Patient Name:", 0, 0); pdf.set_font("Arial", '', 11); pdf.cell(70, 8, patient, 0, 0)
-            pdf.set_font("Arial", 'B', 11); pdf.cell(20, 8, "Date:", 0, 0); pdf.set_font("Arial", '', 11); pdf.cell(40, 8, today_date_str, 0, 1); pdf.ln(5)
+            
+            pdf_filename = f"{patient}_{int(p_data['Age'])}_{today_date_str}.pdf"
+            pdf_path = os.path.join(PRESCRIPTION_FOLDER, pdf_filename)
+            pdf = PDF(); pdf.add_page()
+            
+            pdf.set_fill_color(245, 245, 245)
+            pdf.rect(10, pdf.get_y(), 190, 25, 'F')
+            pdf.set_font("Helvetica", 'B', 12)
+            pdf.cell(100, 8, f"Patient Name: {patient}", 0, 0)
+            pdf.cell(90, 8, f"Date: {today_date_str}", 0, 1, 'R')
+            pdf.set_font("Helvetica", '', 11)
+            pdf.cell(100, 8, f"Age/Gender: {p_data['Age']} / {p_data['Gender']}", 0, 0)
+            pdf.cell(90, 8, f"Contact: {p_data['Contact']}", 0, 1, 'R')
+            pdf.ln(10)
+
             if selected_diag:
-                pdf.set_font("Arial", 'B', 12); pdf.cell(0, 8, "Diagnosis:", 0, 1); pdf.set_font("Arial", '', 11)
-                for d in selected_diag: pdf.cell(10); pdf.cell(0, 6, f"- {d}", 0, 1)
-            if meds:
-                pdf.ln(3); pdf.set_font("Arial", 'B', 14); pdf.cell(0, 10, "Rx (Medicines):", 0, 1); pdf.set_font("Arial", '', 11)
-                idx = 1; 
-                for m in meds: pdf.cell(10); pdf.cell(0, 7, f"{idx}. {m}", 0, 1); idx+=1
+                pdf.set_font("Helvetica", 'B', 12); pdf.set_text_color(44, 122, 111)
+                pdf.cell(0, 8, "Diagnosis / Clinical Findings", 0, 1); pdf.set_text_color(0, 0, 0); pdf.set_font("Helvetica", '', 11)
+                for d in selected_diag: pdf.cell(5); pdf.cell(0, 6, f"- {d}", 0, 1)
+                pdf.ln(5)
+
+            if final_meds:
+                pdf.set_font("Helvetica", 'B', 12); pdf.set_text_color(44, 122, 111)
+                pdf.cell(0, 8, "Rx (Medicines Advised)", 0, 1); pdf.set_text_color(0, 0, 0); pdf.set_font("Helvetica", '', 11)
+                idx = 1
+                for m in final_meds:
+                    pdf.cell(5); pdf.cell(0, 7, f"{idx}. {m}", 0, 1); idx += 1
+                pdf.ln(5)
+
             if sel_treats:
-                pdf.add_page(); pdf.set_font("Arial", 'B', 16); pdf.cell(0, 15, "INVOICE", 0, 1, 'C'); pdf.set_font("Arial", '', 12)
-                for t, p in invoice_lines: pdf.cell(140, 10, f" {t}", 1, 0); pdf.cell(50, 10, f"{p} ", 1, 1, 'R')
-                pdf.ln(5); pdf.set_font("Arial", 'B', 12)
-                pdf.cell(140, 10, "Total", 1, 0); pdf.cell(50, 10, f"{bill_total}", 1, 1, 'R')
-                pdf.cell(140, 10, "Paid", 1, 0); pdf.cell(50, 10, f"{amount_paid}", 1, 1, 'R')
+                pdf.ln(5); pdf.set_font("Helvetica", 'B', 14); pdf.set_fill_color(44, 122, 111); pdf.set_text_color(255, 255, 255)
+                pdf.cell(140, 10, "  Description", 1, 0, 'L', True); pdf.cell(50, 10, "Amount (INR)  ", 1, 1, 'R', True)
+                pdf.set_text_color(0, 0, 0); pdf.set_font("Helvetica", '', 11)
+                for t, p in invoice_lines: pdf.cell(140, 10, f"  {t}", 1, 0); pdf.cell(50, 10, f"{p}  ", 1, 1, 'R')
+                pdf.set_font("Helvetica", 'B', 11)
+                pdf.cell(140, 10, "  Total", 1, 0); pdf.cell(50, 10, f"{bill_total}  ", 1, 1, 'R')
+                pdf.cell(140, 10, "  Paid Amount", 1, 0); pdf.cell(50, 10, f"{amount_paid}  ", 1, 1, 'R')
+            
+            pdf.add_qr_section()
             pdf.output(pdf_path); st.success(f"Saved: {pdf_filename}")
+
+elif choice == "✍️  Consent Forms":
+    st.header("✍️ Informed Consent Form Generator")
+    
+    cf_name = st.text_input("Patient Name", key="cf_name")
+    procedure_type = st.selectbox("Select Procedure", list(CONSENT_TEMPLATES.keys()))
+    
+    # Load Template Text
+    default_text = CONSENT_TEMPLATES[procedure_type]
+    final_text = st.text_area("Review & Edit Consent Text:", value=default_text, height=300)
+    
+    if st.button("🖨️ Generate Consent Form"):
+        if cf_name:
+            pdf = PDF()
+            pdf.add_page()
+            pdf.set_font("Helvetica", 'B', 16)
+            pdf.cell(0, 10, f"CONSENT FOR {procedure_type.upper()}", 0, 1, 'C')
+            pdf.ln(5)
+            
+            pdf.set_font("Helvetica", 'B', 12)
+            pdf.cell(0, 10, f"Patient Name: {cf_name}", 0, 1)
+            
+            pdf.set_font("Helvetica", '', 11)
+            pdf.multi_cell(0, 7, final_text)
+            
+            pdf.ln(10)
+            pdf.set_font("Helvetica", 'B', 11)
+            pdf.cell(0, 10, "Declarations:", 0, 1)
+            pdf.set_font("Helvetica", '', 10)
+            pdf.multi_cell(0, 6, "1. I have been explained the procedure in a language I understand.\n2. I have had the opportunity to ask questions.\n3. I voluntarily consent to this treatment.")
+            
+            pdf.ln(20)
+            # Signature Blocks
+            pdf.cell(90, 10, "__________________________", 0, 0)
+            pdf.cell(90, 10, "__________________________", 0, 1, 'R')
+            pdf.cell(90, 5, "Signature of Patient", 0, 0)
+            pdf.cell(90, 5, "Dr. Sugam Jangid", 0, 1, 'R')
+            
+            filename = f"Consent_{cf_name}_{procedure_type.split()[0]}.pdf"
+            path = os.path.join(CONSENT_FOLDER, filename)
+            pdf.output(path)
+            st.success(f"Consent Form Generated: {filename}")
+        else:
+            st.error("Patient Name is required.")
 
 elif choice == "📢  Marketing / WhatsApp":
     st.header("📢 Clinic Marketing")
