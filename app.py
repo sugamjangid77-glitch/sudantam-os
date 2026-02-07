@@ -14,7 +14,6 @@ from google.oauth2.service_account import Credentials
 # 0. AUTO-GENERATE ASSETS
 # ==========================================
 def generate_assets():
-    # 1. Logo Placeholder
     if not os.path.exists("logo.jpeg"):
         try:
             img = Image.new('RGB', (200, 200), color='#2C7A6F')
@@ -23,7 +22,6 @@ def generate_assets():
             img.save("logo.jpeg")
         except: pass
     
-    # 2. Tooth Diagram Placeholder
     if not os.path.exists("tooth_diagram.png"):
         try:
             img = Image.new('RGB', (400, 200), color='white')
@@ -32,7 +30,6 @@ def generate_assets():
             img.save("tooth_diagram.png")
         except: pass
 
-    # 3. Review QR Placeholder
     if not os.path.exists("review_qr.png"):
         try:
             img = Image.new('RGB', (200, 200), color='white')
@@ -543,7 +540,9 @@ elif choice == "💊  Actions (Rx & Bill)":
                 pdf.cell(140, 10, "  Paid Amount", 1, 0); pdf.cell(50, 10, f"{amount_paid}  ", 1, 1, 'R')
             
             pdf.add_qr_section()
-            pdf.output(pdf_path); st.success(f"Saved: {pdf_filename}")
+            pdf.output(pdf_path)
+            with open(pdf_path, "rb") as f: st.download_button("⬇️ Download Prescription", f, file_name=pdf_filename)
+            st.success(f"Saved: {pdf_filename}")
 
 elif choice == "✍️  Consent Forms":
     st.header("✍️ Informed Consent Form Generator")
@@ -585,6 +584,7 @@ elif choice == "✍️  Consent Forms":
             filename = f"Consent_{cf_name}_{procedure_type.split()[0]}.pdf"
             path = os.path.join(CONSENT_FOLDER, filename)
             pdf.output(path)
+            with open(path, "rb") as f: st.download_button("⬇️ Download Consent Form", f, file_name=filename)
             st.success(f"Consent Form Generated: {filename}")
         else:
             st.error("Patient Name is required.")
