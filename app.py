@@ -56,8 +56,16 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 2. PDF ENGINE
+# 2. PDF ENGINE (SAFE MODE)
 # ==========================================
+def clean_text(text):
+    """Removes unsupported characters to prevent PDF crashes."""
+    if not isinstance(text, str): return str(text)
+    # Replace Rupee symbol
+    text = text.replace("₹", "Rs.")
+    # Remove other non-latin characters (emojis, etc.)
+    return text.encode('latin-1', 'replace').decode('latin-1')
+
 class SudantamPDF(FPDF):
     def header(self):
         self.set_font('Arial', 'B', 16)
@@ -98,11 +106,8 @@ with tabs[0]:
         name = st.text_input("FULL NAME")
         phone = st.text_input("PHONE NUMBER")
         c1, c2 = st.columns(2)
-        with c1: 
-            # Age defaults to 0 (displays as 0 but acts as blank placeholder)
-            age = st.number_input("AGE", min_value=0, step=1, value=0)
-        with c2: 
-            gender = st.selectbox("GENDER", ["", "Male", "Female", "Other"])
+        with c1: age = st.number_input("AGE", min_value=0, step=1, value=0)
+        with c2: gender = st.selectbox("GENDER", ["", "Male", "Female", "Other"])
         mh = st.multiselect("MEDICAL HISTORY", ["None", "Diabetes", "BP", "Thyroid", "Asthma", "Allergy"])
         
         if st.form_submit_button("✅ REGISTER PATIENT"):
@@ -126,7 +131,7 @@ with tabs[1]:
         idx = df.index[df["Name"] == pt_select].tolist()[0]
         row = df.iloc[idx]
         
-        st.info("🦷 FDI Tooth Selection (Refer to chart above)")
+        st.info("🦷 FDI Tooth Selection (Select Affected Teeth)")
         c1, c2 = st.columns(2)
         ur = c1.multiselect("UR (11-18)", [str(x) for x in range(11, 19)][::-1])
         ul = c2.multiselect("UL (21-28)", [str(x) for x in range(21, 29)])
@@ -181,21 +186,43 @@ with tabs[1]:
                 rx_str = " | ".join([f"{m['Medicine']} ({m['Dosage']} x {m['Duration']})" for m in st.session_state.temp_rx])
                 due = (bill - paid) + float(row['Pending Amount'] if row['Pending Amount'] else 0)
                 
-                log = f"\n📅 {datetime.date.today()}\nTx: {tx_done} (Teeth: {fdi})\nNotes: {notes}\nRx: {rx_str}\nPaid: {paid}"
+                # Update DB
+                log = f"\nDATE: {datetime.date.today()}\nTx: {tx_done} (Teeth: {fdi})\nNotes: {notes}\nRx: {rx_str}\nPaid: {paid}"
                 df.at[idx, "Visit Log"] = str(row['Visit Log']) + log
                 df.at[idx, "Pending Amount"] = due
                 df.to_csv(LOCAL_DB_FILE, index=False)
                 
-                # PDF Generation
+                # PDF Generation (with Safe Text)
                 pdf = SudantamPDF()
                 pdf.add_page()
                 pdf.set_font('Arial', 'B', 12)
-                pdf.cell(0, 10, f"Patient: {row['Name']} ({row['Age']}/{row['Gender']})", 0, 1)
-                pdf.cell(0, 10, f"Treatment: {tx_done} (Teeth: {fdi})", 0, 1)
-                pdf.set_font('Arial', '', 11)
-                pdf.multi_cell(0, 8, f"Notes: {notes}\n\nPrescription:\n" + "\n".join([f"- {m['Medicine']} ({m['Dosage']} x {m['Duration']})" for m in st.session_state.temp_rx]))
                 
-                pdf_name = f"Rx_{row['Name']}.pdf"
+                # Patient Info
+                pdf.cell(0, 10, clean_text(f"Patient: {row['Name']} ({row['Age']}/{row['Gender']})"), 0, 1)
+                pdf.cell(0, 10, clean_text(f"Date: {datetime.date.today()}"), 0, 1)
+                pdf.ln(5)
+                
+                # Clinical Details
+                pdf.set_font('Arial', 'B', 12); pdf.cell(0, 10, "Clinical Details:", 0, 1)
+                pdf.set_font('Arial', '', 11)
+                pdf.multi_cell(0, 8, clean_text(f"Treatment: {tx_done}\nTeeth Affected: {fdi}\nNotes: {notes}"))
+                pdf.ln(5)
+                
+                # Prescription
+                pdf.set_font('Arial', 'B', 12); pdf.cell(0, 10, "Prescription:", 0, 1)
+                pdf.set_font('Arial', '', 11)
+                for m in st.session_state.temp_rx:
+                    pdf.cell(0, 8, clean_text(f"- {m['Medicine']} ({m['Dosage']} for {m['Duration']})"), 0, 1)
+                
+                # Financials
+                pdf.ln(5)
+                pdf.set_font('Arial', 'B', 12); pdf.cell(0, 10, "Financials:", 0, 1)
+                pdf.set_font('Arial', '', 11)
+                pdf.cell(0, 8, clean_text(f"Total Bill: Rs. {bill}"), 0, 1)
+                pdf.cell(0, 8, clean_text(f"Paid Now: Rs. {paid}"), 0, 1)
+                pdf.cell(0, 8, clean_text(f"Balance Due: Rs. {due}"), 0, 1)
+                
+                pdf_name = f"Rx_{clean_text(row['Name']).replace(' ','_')}.pdf"
                 pdf.output(pdf_name)
                 st.session_state.pdf_ready = pdf_name
                 st.session_state.temp_rx = [] 
@@ -221,9 +248,9 @@ with tabs[2]:
                 
                 pdf_h = SudantamPDF()
                 pdf_h.add_page()
-                pdf_h.set_font('Arial', 'B', 12); pdf_h.cell(0, 10, f"Full History: {r['Name']}", 0, 1)
-                pdf_h.set_font('Arial', '', 10); pdf_h.multi_cell(0, 7, str(r['Visit Log']))
-                h_file = f"Record_{r['Name']}.pdf"
+                pdf_h.set_font('Arial', 'B', 12); pdf_h.cell(0, 10, clean_text(f"Full History: {r['Name']}"), 0, 1)
+                pdf_h.set_font('Arial', '', 10); pdf_h.multi_cell(0, 7, clean_text(str(r['Visit Log'])))
+                h_file = f"Record_{clean_text(r['Name']).replace(' ','_')}.pdf"
                 pdf_h.output(h_file)
                 with open(h_file, "rb") as f:
                     st.download_button("📥 DOWNLOAD HISTORY PDF", f, file_name=h_file)
@@ -244,7 +271,7 @@ with tabs[3]:
                 df.to_csv(LOCAL_DB_FILE, index=False)
                 st.rerun()
 
-# --- TAB 5: SYNC (WITH ANIMATION) ---
+# --- TAB 5: SYNC ---
 with tabs[4]:
     st.markdown("### 🔄 Data Synchronization")
     if st.button("🔄 PUSH TO CLOUD"):
