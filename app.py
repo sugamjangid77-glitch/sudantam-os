@@ -35,7 +35,7 @@ def generate_assets():
 generate_assets()
 
 # ==========================================
-# 1. GOOGLE SHEETS CONFIGURATION (CLOUD + LOCAL SUPPORT)
+# 1. GOOGLE SHEETS CONFIGURATION
 # ==========================================
 SHEET_ID = "120wdQHfL9mZB7OnYyHg-9o2Px-6cZogctcuNEHjhD9Q"
 
@@ -44,23 +44,20 @@ def get_sheet_client():
     scope = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
     creds = None
     
-    # 1. Try Streamlit Secrets (Cloud / Mobile)
+    # Try Streamlit Secrets first
     if "gcp_service_account" in st.secrets:
         try:
             creds = Credentials.from_service_account_info(st.secrets["gcp_service_account"], scopes=scope)
         except Exception as e:
             st.error(f"Secrets Error: {e}")
             return None
-
-    # 2. Try Local File (Laptop Backup)
+    # Fallback to local key.json
     elif os.path.exists("key.json"):
         creds = Credentials.from_service_account_file("key.json", scopes=scope)
-    
     else:
-        st.error("⚠️ No Authentication found. Setup Secrets or key.json")
+        st.error("⚠️ Authentication Error: No keys found.")
         return None
     
-    # Retry logic
     for attempt in range(3):
         try:
             client = gspread.authorize(creds)
@@ -353,11 +350,17 @@ elif choice == "💊  Actions (Rx & Bill)":
         with col_note: custom_notes = st.text_area("Custom Notes (Rx)", height=60)
         with col_next_date: 
             schedule_next = st.checkbox("Schedule Next Visit?", value=True)
+            # --- CRITICAL FIX FOR DATE PARSING ---
             try:
-                existing_date_str = str(p_data["Next Appointment"])
-                if existing_date_str == "Not Required" or existing_date_str == "nan": default_date = datetime.date.today() + datetime.timedelta(days=7)
-                else: default_date = pd.to_datetime(existing_date_str, format="%d-%m-%Y").date()
-            except: default_date = datetime.date.today() + datetime.timedelta(days=7)
+                raw_date = str(p_data.get("Next Appointment", ""))
+                parsed = pd.to_datetime(raw_date, format="%d-%m-%Y", errors='coerce')
+                if pd.isna(parsed):
+                     default_date = datetime.date.today() + datetime.timedelta(days=7)
+                else:
+                     default_date = parsed.date()
+            except: 
+                default_date = datetime.date.today() + datetime.timedelta(days=7)
+            
             if schedule_next: new_next_visit_date = st.date_input("Date:", value=default_date, format="DD-MM-YYYY"); final_next_visit_str = new_next_visit_date.strftime("%d-%m-%Y")
             else: final_next_visit_str = "Not Required"
         st.markdown("---"); st.markdown("### 2. Invoice Details")
@@ -457,9 +460,32 @@ elif choice == "🔧  Manage Data":
                 c1, c2 = st.columns(2)
                 new_name = c1.text_input("Name", value=p_data["Name"])
                 new_contact = c2.text_input("Contact", value=str(p_data["Contact"]))
+                st.write("---")
+                # --- CRITICAL FIX FOR DATE PARSING ---
+                try:
+                    raw_date = str(p_data.get("Next Appointment", ""))
+                    parsed = pd.to_datetime(raw_date, format="%d-%m-%Y", errors='coerce')
+                    if pd.isna(parsed):
+                        default_date = datetime.date.today() + datetime.timedelta(days=7)
+                    else:
+                        default_date = parsed.date()
+                except:
+                    default_date = datetime.date.today() + datetime.timedelta(days=7)
+                
+                # Checkbox logic
+                is_scheduled = (str(p_data.get("Next Appointment")) not in ["Not Required", "nan", "NaT"])
+                schedule_edit = st.checkbox("Scheduled Next Visit?", value=is_scheduled)
+                
+                if schedule_edit:
+                    new_app_date = st.date_input("Next Visit", value=default_date, format="DD-MM-YYYY")
+                    final_edit_app_str = new_app_date.strftime("%d-%m-%Y")
+                else: 
+                    final_edit_app_str = "Not Required"
+
                 if st.form_submit_button("💾 Update Info"):
                     df.at[idx, "Name"] = new_name
                     df.at[idx, "Contact"] = new_contact
+                    df.at[idx, "Next Appointment"] = final_edit_app_str
                     save_data(df)
                     st.success("Updated!")
                     st.rerun()
