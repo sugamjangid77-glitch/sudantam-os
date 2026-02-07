@@ -1,0 +1,13 @@
+{
+  "type": "service_account",
+  "project_id": "sudantam-clinic",
+  "private_key_id": "9d9bbef8d453400a9c292f231b607b41f08f3d9b",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDSbT2A/K1Zxjsd\nyw4Xvy+7soNiR9/4UUZ7he8Nui/NOWlORTqO7Ed/ZuBZ4oZ2mFbq1+ZuwsVRfYrd\ni0PX4m6DVxwr4aE8WvfTDArgwcdNlRJU3t6GINtU8XIa4dfdeueh6D9TZEXwf6e9\npbCWXTkp13BKTFGH2sAAX2MaXf052HUU0E7pYu1f7fqFn82Q0rGXowtgDmxiHOIP\nueXo0ys/yKdq73GJxq42kvKaEOXdBsNT1rwF7Plg28vAsGqOqcJJcZUdeOBtas8/\nsdF6iiuqVj7KITwVIiMyg5oJ9opIDGQujTC6V4IFBDb1XdJR8YCAwL81eXGdU2Dl\nFWKO2hbTAgMBAAECggEAaJMMeUFZfx+COoyyjL+hX7TYEWwp1NTDY9jMVDSe0+0/\ntbu23ddzss90GId4jpCnxV8VcB8Qg66R6AbxaOTpShFs+SvQ/tcwiSxXbZovy5EV\ngqMd0GecyMqTC+QH7NRLMA3lBrLzBRHT0W5540giA/bCodHqxMrEF4tQC4cBNRDE\nUvGw0OvshlJlitAtKgjWa8szN1z2MTy8ZjVWV2lg73nuuXj2TI9OtrTbgKHvECKh\nFL2Chs8lr1l1wJzw8Dt2gwA+chqTKpordF15+hlnduAxvIr9LRAiujrYFmpwe4pW\nbUUB/Sbu08m+NlpT6CaYzrEAE9wN/nMHZAfy0rqV8QKBgQDvuge8cuNlYoU8Mw8D\nTLkUDQ6RrwZ/qyUhayUp3M7Xi7O7058i/9uUh371Ijo8+26GabegpYEHTwo7EGtR\n3RzZFX35MX58yJGM7PQGur4H6+xMYYXJ4P2yatEguS4oyPhl6Ju+zBr6XU6RoRNB\nCciHtECZjRggGYHV8gH6VxIG4wKBgQDgtgkN8MKnMEzSSx3M/OYx417tobPMJA4Q\n+USXqhkJH7cZsgBR9CupQbM5/bdnBFCyicqJsdzlPe6vpSFvSX28LjQvK6IQIPsW\nq/pQ7LkMAguCu/M96vRRkpHxOznlvTKv8D+uvjk6k7yIAaBKs7/PzVjYK35h4TBL\nNRsgey3DUQKBgD/9so71RAoOMG6PWpSQ6F6X1anBxMRTlQfEqBjyniwfWIzswm//\nSEfvm04oIs+gdjJfCetSAo1G5f46NcuWcFrqR8Q7F/6LM38gyUr6kjtfGKaS6bmn\n21DC/qvzgoTUkKnzW4+kwBbQzWZGTvNvfx3qWcwjQ6td47COd0Sx9VftAoGBAIND\nctiU2nAlc8qoHHlhBesAgbRYcBoAucLKiXn63/MHdsLoyu0Ur+iIO3TVs6vWxnj0\nqr5yirHS0roBwR0sFem2J7+iQmIfkez1exyIm7PbAfRVbEqwFBYOg3gh+7krIw/J\nTLn73pxMLqZYJNVeWN6/enWUOphcngRguj7oFZxxAoGBAM7osAzhI4ngGk2VvU+o\nB9d+fgIHLMcfhygZWCzKdrH6JTigHdmMDJPuSAwiGZJgfmVIGlDBKF+ws/Nu1B6k\n5TpfAXtznbrK9BsZtXCHwlBGofxLLVQQxMJNrSVVh36cQbM45h7THwjMIxC4PPeW\nBLMixhoF+wjKU0d4cel5mDiy\n-----END PRIVATE KEY-----\n",
+  "client_email": "sudantam-manager@sudantam-clinic.iam.gserviceaccount.com",
+  "client_id": "109907071507581608331",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/sudantam-manager%40sudantam-clinic.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}
