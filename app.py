@@ -9,19 +9,16 @@ import gspread
 from google.oauth2.service_account import Credentials
 
 # ==========================================
-# 1. CLOUD CONNECTION (BY ID)
+# 1. CLOUD CONNECTION (Hardcoded ID)
 # ==========================================
-# 👇 PASTE YOUR SHEET ID HERE 👇
-SHEET_ID = "PASTE_YOUR_SHEET_ID_HERE"
+SHEET_ID = "120wdQHfL9mZB7OnYyHg-9o2Px-6cZogctcuNEHjhD9Q"
 
 def get_db_connection():
     scope = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
     creds = None
     try:
-        # Check for Secrets (Mobile)
         if "gcp_service_account" in st.secrets:
             creds = Credentials.from_service_account_info(st.secrets["gcp_service_account"], scopes=scope)
-        # Check for Local Key (PC)
         elif os.path.exists("key.json"):
             creds = Credentials.from_service_account_file("key.json", scopes=scope)
         else:
@@ -263,7 +260,7 @@ with tabs[1]:
                 st.link_button("📱 WhatsApp", st.session_state.wa_link)
             if st.button("✅ Done"): st.session_state.pdf_ready = None; st.rerun()
 
-# --- TAB 3: RECORDS (WITH DOWNLOAD PDF) ---
+# --- TAB 3: RECORDS ---
 with tabs[2]:
     st.markdown("### 📂 Records")
     sort = st.radio("Sort", ["Newest", "Oldest", "A-Z", "Dues"], horizontal=True)
@@ -284,7 +281,7 @@ with tabs[2]:
         st.info(f"{row['Name']} | Due: Rs. {row['Pending Amount']}")
         st.text_area("History", row['Visit Log'], height=150)
         
-        # --- PDF HISTORY DOWNLOADER ---
+        # DOWNLOAD HISTORY BUTTON
         pdf_h = SudantamPDF()
         pdf_h.add_page()
         pdf_h.set_font('Arial', '', 11)
