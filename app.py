@@ -89,7 +89,7 @@ df = load_data()
 if os.path.exists(LOGO_FILENAME):
     st.image(LOGO_FILENAME)
 
-tabs = st.tabs(["📋 REGISTRATION", "🦷 CLINICAL", "📂 RECORDS", "💰 DUES", "🔄 SYNC"])
+tabs = st.tabs(["📝 REGISTRATION", "🦷 CLINICAL", "📂 RECORDS", "💰 DUES", "🔄 SYNC"])
 
 # --- TAB 1: REGISTRATION ---
 with tabs[0]:
@@ -119,11 +119,7 @@ with tabs[1]:
         idx = df.index[df["Name"] == pt_select].tolist()[0]
         row = df.iloc[idx]
         
-        st.info("🦷 Select Affected Teeth (FDI System)")
-        
-
-[Image of the FDI tooth numbering system]
-
+        st.info("🦷 FDI Tooth Selection (Refer to chart above)")
         c1, c2 = st.columns(2)
         ur = c1.multiselect("UR (11-18)", [str(x) for x in range(11, 19)][::-1])
         ul = c2.multiselect("UL (21-28)", [str(x) for x in range(21, 29)])
@@ -152,21 +148,10 @@ with tabs[1]:
         with st.form("final_tx"):
             st.markdown("#### 🛠️ Comprehensive Treatment List")
             tx_done = st.selectbox("TREATMENT CATEGORY", [
-                "", 
-                "Consultation",
-                "Scaling & Polishing",
-                "Composite Filling",
-                "Root Canal (RCT)",
-                "Simple Extraction",
-                "Impacted Molar Extraction (Surgical)",
-                "Orthodontics: Metal Braces",
-                "Orthodontics: Ceramic Braces",
-                "Orthodontics: Invisible Braces (Invisalign)",
-                "Prosthetics: PFM Crown",
-                "Prosthetics: Zirconia Crown",
-                "Prosthetics: Bridge",
-                "Implant",
-                "Veneers"
+                "", "Consultation", "Scaling & Polishing", "Composite Filling", "Root Canal (RCT)",
+                "Simple Extraction", "Impacted Molar Extraction (Surgical)", "Orthodontics: Metal Braces",
+                "Orthodontics: Ceramic Braces", "Orthodontics: Invisible Braces (Invisalign)",
+                "Prosthetics: PFM Crown", "Prosthetics: Zirconia Crown", "Prosthetics: Bridge", "Implant", "Veneers"
             ])
             notes = st.text_area("CLINICAL NOTES / OBSERVATIONS")
             b1, b2 = st.columns(2)
@@ -241,7 +226,7 @@ with tabs[3]:
                 df.to_csv(LOCAL_DB_FILE, index=False)
                 st.rerun()
 
-# --- TAB 5: SYNC (WITH ANIMATION) ---
+# --- TAB 5: SYNC ---
 with tabs[4]:
     st.markdown("### 🔄 Data Synchronization")
     if st.button("🔄 PUSH TO CLOUD"):
