@@ -130,10 +130,8 @@ with tabs[1]:
         row = df.iloc[idx]
         
         st.info("🦷 FDI Tooth Selection")
+        # No image tag inside code block here.
         
-
-[Image of the FDI tooth numbering system]
-
         c1, c2 = st.columns(2)
         ur = c1.multiselect("UR (11-18)", [str(x) for x in range(11, 19)][::-1])
         ul = c2.multiselect("UL (21-28)", [str(x) for x in range(21, 29)])
@@ -262,20 +260,21 @@ with tabs[2]:
                 with open(h_file, "rb") as f:
                     st.download_button("📥 DOWNLOAD HISTORY PDF", f, file_name=h_file)
 
-# --- TAB 4: DUES (WITH CLEAR BALANCE BUTTONS) ---
+# --- TAB 4: DUES (WITH ONE-CLICK CLEAR) ---
 with tabs[3]:
-    st.markdown("### 💰 Payment Manager")
+    st.markdown("### 💰 Manage Dues")
     df["Pending Amount"] = pd.to_numeric(df["Pending Amount"], errors='coerce').fillna(0)
     defaulters = df[df["Pending Amount"] > 0]
     
     if not defaulters.empty:
+        # Loop through defaulters
         for idx, row in defaulters.iterrows():
             with st.expander(f"🔴 {row['Name']} - Due: Rs. {row['Pending Amount']}"):
                 c1, c2 = st.columns([2, 1])
                 c1.write(f"Contact: {row['Contact']}")
                 
-                # ONE-CLICK CLEAR BUTTON
-                if c2.button(f"✅ CLEAR FULL BALANCE (Rs. {row['Pending Amount']})", key=f"pay_{idx}"):
+                # --- ONE CLICK CLEAR BUTTON ---
+                if c2.button(f"✅ CLEAR FULL BALANCE (Rs. {row['Pending Amount']})", key=f"clear_{idx}"):
                     df.at[idx, "Pending Amount"] = 0
                     log_entry = f"\n📅 {datetime.date.today()} | Payment: Full Balance Cleared"
                     df.at[idx, "Visit Log"] = str(row['Visit Log']) + log_entry
@@ -283,14 +282,15 @@ with tabs[3]:
                     st.success(f"Cleared dues for {row['Name']}!")
                     st.rerun()
                     
-                # PARTIAL PAYMENT OPTION
                 st.markdown("---")
-                part_pay = st.number_input(f"Partial Payment for {row['Name']}", step=100, key=f"part_{idx}")
-                if st.button(f"Update Partial for {row['Name']}", key=f"upd_{idx}"):
-                    if part_pay > 0:
-                        df.at[idx, "Pending Amount"] = float(row['Pending Amount']) - part_pay
-                        df.to_csv(LOCAL_DB_FILE, index=False)
-                        st.rerun()
+                # PARTIAL PAYMENT LOGIC
+                with st.form(key=f"partial_{idx}"):
+                    part_pay = st.number_input(f"Partial Amount", step=100, key=f"p_amt_{idx}")
+                    if st.form_submit_button(f"Update Partial for {row['Name']}"):
+                        if part_pay > 0:
+                            df.at[idx, "Pending Amount"] = float(row['Pending Amount']) - part_pay
+                            df.to_csv(LOCAL_DB_FILE, index=False)
+                            st.rerun()
     else:
         st.success("🎉 No Pending Dues! All accounts are clear.")
 
